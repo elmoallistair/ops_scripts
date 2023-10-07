@@ -1,10 +1,9 @@
 import re
-import string
 import pandas as pd
 
 def clean_review_text(raw_review):
     raw_review = str(raw_review) 
-    review_transform = re.sub(f"[{string.punctuation}]", ' ', raw_review)
+    review_transform = re.sub(f"[!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]", ' ', raw_review)
     review_transform = re.sub('\n', ' ', review_transform)
     review_transform = re.sub(r'\s+', ' ', review_transform).strip()
     review_transform = review_transform.encode('ascii', 'ignore').decode('ascii')
@@ -17,7 +16,6 @@ def transform_class(tag):
     return tag
 
 def clean_sample_data(df_reviews):
-    old_len = len(df_reviews)
     df_reviews['review_transform'] = df_reviews['review'].apply(clean_review_text)
     df_reviews['tag_transform'] = df_reviews['tag'].apply(transform_class)
     df_reviews.dropna(inplace=True)
@@ -25,7 +23,7 @@ def clean_sample_data(df_reviews):
     df_reviews['word_len'] = df_reviews['review'].apply(lambda x: len(x.split()))
     df_reviews['string_len'] = df_reviews['review'].apply(lambda x: len(x))
 
-    value_counts = df_training['tag'].value_counts()
+    value_counts = df_reviews['tag'].value_counts()
     df_reviews = df_reviews[df_reviews['tag'].isin(value_counts.index[value_counts >= 10])]
 
     print(f'Removed {old_len - len(df_reviews)} rows of unmatched criteria')
