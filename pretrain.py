@@ -27,7 +27,6 @@ def clean_sample_data(df_reviews):
     value_counts = df_reviews['tag'].value_counts()
     df_reviews = df_reviews[df_reviews['tag'].isin(value_counts.index[value_counts >= 10])]
 
-    print(f'Removed {old_len - len(df_reviews)} rows of unmatched criteria')
     return df_reviews
 
 def remove_duplicated_sample(df_reviews):
