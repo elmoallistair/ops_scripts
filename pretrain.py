@@ -8,6 +8,7 @@ def clean_review_text(raw_review):
     review_transform = re.sub('\n', ' ', review_transform)
     review_transform = re.sub(r'\s+', ' ', review_transform).strip()
     review_transform = review_transform.encode('ascii', 'ignore').decode('ascii')
+    review_transform = review_transform.lower()
     return review_transform
 
 def transform_class(tag):
