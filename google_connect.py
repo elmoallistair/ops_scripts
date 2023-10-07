@@ -71,7 +71,7 @@ def read_data_from_sheet(client, sheet_id, sheet_name, verbose=False):
     dataframe = pd.concat(data_frames, axis=0, ignore_index=True)
 
     if verbose:
-        print(f'Successfully read {len(dataframe)} rows from "{sheet_id}"')
+        print(f'Successfully read {len(dataframe)} rows from "{sheet_name}"')
 
     return dataframe
 
