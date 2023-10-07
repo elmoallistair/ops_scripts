@@ -1,12 +1,14 @@
+import re
+import string
+import pandas as pd
+
 def clean_review_text(raw_review):
-    raw_review = str(raw_review)
-    review_transform = raw_review.lower()
-    review_transform = review_transform.translate(str.maketrans('', '', string.punctuation))
-    review_transform = re.sub('\s+', ' ', review_transform).strip()
-    if re.search('[a-zA-Z]', review_transform):
-        return review_transform
-    else:
-        return None
+    raw_review = str(raw_review) 
+    review_transform = re.sub(f"[{string.punctuation}]", ' ', raw_review)
+    review_transform = re.sub('\n', ' ', review_transform)
+    review_transform = re.sub(r'\s+', ' ', review_transform).strip()
+    review_transform = review_transform.encode('ascii', 'ignore').decode('ascii')
+    return review_transform
 
 def transform_class(tag):
     tag = re.sub(rf'[{string.punctuation}]', ' ', tag)
@@ -36,4 +38,4 @@ def remove_duplicated_sample(df_reviews):
     df_reviews = df_reviews.drop_duplicates(subset='review', keep='first')
     df_reviews.reset_index(drop=True, inplace=True)
     
-    return df_reviews[['review_transform', 'tag_transform', 'occurrence']]
+    return df_reviews[['review_transform', 'tag_transform', 'occurrence', 'word_len', 'string_len']]
