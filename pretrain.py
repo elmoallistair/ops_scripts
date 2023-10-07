@@ -1,9 +1,10 @@
 import re
+import string
 import pandas as pd
 
 def clean_review_text(raw_review):
     raw_review = str(raw_review) 
-    review_transform = re.sub(f"[!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]", ' ', raw_review)
+    review_transform = re.sub(f"[{string.punctuation}]", ' ', raw_review)
     review_transform = re.sub('\n', ' ', review_transform)
     review_transform = re.sub(r'\s+', ' ', review_transform).strip()
     review_transform = review_transform.encode('ascii', 'ignore').decode('ascii')
