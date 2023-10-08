@@ -2,8 +2,34 @@ import re
 import string
 import warnings
 import unicodedata
-import pandas as pd
 import numpy as np
+import pandas as pd
+import datetime as dt
+
+def get_n_last_date_range(n):
+    today_date = dt.date.today()
+    date_format = "%Y-%m-%d"
+
+    if n == 0:   # today
+        date_start = date_end = today_date.strftime(date_format)
+    elif n == 1: # yesterday
+        yesterday_date = today_date - dt.timedelta(days=1)
+        date_start = date_end = yesterday_date.strftime(date_format)
+    else:        # n-last day
+        date_end = today_date.strftime(date_format)
+        date_start = (today_date - dt.timedelta(days=n-1)).strftime(date_format)
+
+    return date_start, date_end
+
+def get_date_range(start_date, end_date):
+    date_list = []
+    current_date = dt.datetime.strptime(start_date, '%Y-%m-%d')
+
+    while current_date <= dt.datetime.strptime(end_date, '%Y-%m-%d'):
+        date_list.append(current_date.strftime('%Y-%m-%d'))
+        current_date += timedelta(days=1)
+
+    return date_list
 
 def lookup_value(df_source_key, df_target, old_value, new_value):
     matching_row = df_target[df_target[old_value] == df_source_key]
