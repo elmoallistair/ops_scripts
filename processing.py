@@ -27,7 +27,7 @@ def get_date_range(start_date, end_date):
 
     while current_date <= dt.datetime.strptime(end_date, '%Y-%m-%d'):
         date_list.append(current_date.strftime('%Y-%m-%d'))
-        current_date += timedelta(days=1)
+        current_date += dt.timedelta(days=1)
 
     return date_list
 
