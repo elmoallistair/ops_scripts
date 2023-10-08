@@ -38,13 +38,19 @@ def lookup_value(df_source_key, df_target, old_value, new_value):
     else:
         return None
   
-def rename_columns_with_template(column, df_rename):
-    column = column.lower().replace(' ', '_')
-    for _, row in df_rename.iterrows():
-        variants = row['Variant'].split('|')
-        if column in variants:
-            return row['Origin']
-    return column
+def rename_columns_with_template(columns, df_rename):
+    renamed_columns = []
+    for col in columns:
+        col = col.lower().replace(' ', '_')
+        for _, row in df_rename.iterrows():
+            variants = row['variant'].split('|')
+            if col in variants:
+                renamed_columns.append(row['origin'])
+                break
+        else:
+            renamed_columns.append(col)
+    return renamed_columns
+
 
 def order_column_by_template(dataframe, cols_lst):
     template = pd.Series(cols_lst)[pd.Series(cols_lst) != ''].dropna()
