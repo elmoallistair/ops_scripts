@@ -28,7 +28,7 @@ def authenticate_client(json_key_file_path):
         print(f'Service account "{credentials.service_account_email}" successfully authenticated')
         return gspread.authorize(credentials)
     except Exception as e:
-        print(f"Error authenticating client: {str(e)}")
+        print(f'Error authenticating client: {str(e)}')
         return None
 
 
@@ -63,7 +63,7 @@ def read_data_from_sheet(client, sheet_id, sheet_name, verbose=False):
             dataframe = pd.DataFrame(data[1:], columns=data[0])
             data_frames.append(dataframe)
         except gspread.exceptions.WorksheetNotFound:
-            print(f"[Warning] Sheet '{name}' does not exist")
+            print(f'[Warning] Sheet {name} does not exist')
 
     if not data_frames:
         return None
@@ -92,10 +92,14 @@ def write_dataframe_to_sheet(client, df_source, sheet_id, sheet_name, values_onl
         write_dataframe_to_sheet(your_authenticated_client, your_dataframe, 'your_spreadsheet_id', 'your_sheet_name')
     """
     dataframe = df_source.copy()
-    dataframe = dataframe.fillna("")
+    dataframe = dataframe.fillna('')
     dataframe = dataframe.astype(str)
     spreadsheet = client.open_by_key(sheet_id)
-    worksheet = spreadsheet.worksheet(sheet_name)
+
+    try:
+        worksheet = spreadsheet.worksheet(sheet_name)
+    except gspread.exceptions.WorksheetNotFound:
+        worksheet = spreadsheet.add_worksheet(sheet_name, rows=1, cols=1)
 
     if clear_sheet:
         worksheet.clear()
@@ -106,4 +110,4 @@ def write_dataframe_to_sheet(client, df_source, sheet_id, sheet_name, values_onl
         worksheet.update('A1', [dataframe.columns.tolist()] + dataframe.values.tolist(), value_input_option='USER_ENTERED')
 
     if verbose:
-        print(f'Suceessfully wrote {len(dataframe)} to sheet "{sheet_name}"')
+        print(f'Successfully wrote {len(dataframe)} rows to sheet "{sheet_name}"')
