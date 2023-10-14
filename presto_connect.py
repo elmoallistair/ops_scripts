@@ -4,8 +4,8 @@ from pyhive import presto
 def execute_presto_query(query, username, password):
     print('Querying data from presto...')
     cursor = presto.connect(host='porta.data-engineering.myteksi.net',
-                            username=username,f'{username};cloud=aws&mode=adhoc', 
-                            password=password,),
+                            username=f'{username};cloud=aws&mode=adhoc', 
+                            password=password,
                             catalog='hive', schema='public', port=443, protocol='https').cursor()
     cursor.execute(query)
     data =  pd.DataFrame(cursor.fetchall())
