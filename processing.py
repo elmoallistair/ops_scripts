@@ -1,6 +1,4 @@
 import re
-import string
-import warnings
 import unicodedata
 import numpy as np
 import pandas as pd
@@ -10,16 +8,18 @@ def get_n_last_date_range(n):
     today_date = dt.date.today()
     date_format = "%Y-%m-%d"
 
-    if n == 0:   # today
+    if n == 0:
         date_start = date_end = today_date.strftime(date_format)
-    elif n == 1: # yesterday
+    elif n == 1:
         yesterday_date = today_date - dt.timedelta(days=1)
-        date_start = date_end = yesterday_date.strftime(date_format)
-    else:        # n-last day
+        date_start = yesterday_date.strftime(date_format)
         date_end = today_date.strftime(date_format)
-        date_start = (today_date - dt.timedelta(days=n-1)).strftime(date_format)
+    else: 
+        date_end = today_date.strftime(date_format)
+        date_start = (today_date - dt.timedelta(days=n)).strftime(date_format)
 
     return date_start, date_end
+
 
 def get_date_range(start_date, end_date):
     date_list = []
@@ -130,16 +130,16 @@ def fix_taxi_types(text):
     text = re.sub(r'(Grab|::)([a-z])', lambda x: x.group(1) + x.group(2).upper(), text)
     return text
 
+# ========== BAU PROCESSING ==========
+
 def get_treatment_name(vertical, category=None):
     treatment_mapping = {
-        'GrabFood': 'DELIHCLGF',
-        'GrabMart': 'DELIHCLGM',
-        'GrabExpress': 'DELIHCLGE',
+        'F': 'DELIHCLGF',
+        'M': 'DELIHCLGM',
+        'E': 'DELIHCLGE'
     }
     
-    # CATEGORIES TBD
-    
-    return treatment_mapping.get(vertical, '')
+    return treatment_mapping.get(vertical[-1], '')
 
 def process_pax_rating(df_prt_raw, model, feature, mappings):
     cols_order, cols_rename, pred_rename = mappings.values()
@@ -252,7 +252,7 @@ def process_cancellation(df_hcl, mappings):
         'total_cancelled_driver':'cancelled_booking_count',
         'cancel_rate_percentage':'cancellation_rate'}
 
-    cols_order, cols_rename, _ = mappings.values()
+    cols_order, _ = mappings.values()
     df_hcl.rename(columns=map_rename, inplace=True)
     df_hcl['driver_id'] = df_hcl['driver_id'].astype(str)
     df_hcl['identifier'] = df_hcl['driver_id'] + df_hcl['vertical']
@@ -261,8 +261,8 @@ def process_cancellation(df_hcl, mappings):
     df_hcl['root_cause'] = 'High Cancellation'
     df_hcl['sub_category'] = 'High Cancellation'
     df_hcl['category_level'] = 'Low'
-    df_hcl['final_treatment'] = 'Warning'   # ADJUST THIS WHEN RELAXATION ENDED
-    df_hcl['origin_treatment'] = 'Warning'  # ADJUST THIS WHEN RELAXATION ENDED
+    df_hcl['final_treatment'] = 'Warning'   # Subject to Change
+    df_hcl['origin_treatment'] = 'Warning'  # Subject to Change
     df_hcl['cancellation_rate'] = df_hcl['cancellation_rate'].astype(float) / 100.0
     df_hcl['treatment_name'] = df_hcl['vertical'].apply(get_treatment_name, category='high_cancellation')
     df_hcl = order_column_by_template(df_hcl, cols_order['high_cancellation'])
@@ -270,10 +270,10 @@ def process_cancellation(df_hcl, mappings):
 
 def process_gsid_improper(df_gsid, mappings):
     def get_gsid_subdispo(vertical):
-        if vertical == 'GrabExpress':
+        last_letter = vertical[-1]
+        if last_letter == 's':
             return 'Driver Early Completed'
         return 'Not confirm the delivery address'
-
 
     cols_order, cols_rename, _ = mappings.values()
     df_gsid = rename_columns_with_template(df_gsid, cols_rename)
