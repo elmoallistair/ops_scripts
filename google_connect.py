@@ -1,7 +1,6 @@
-import json
 import gspread
-import numpy as np
 import pandas as pd
+from datetime import datetime, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -107,3 +106,41 @@ def write_dataframe_to_sheet(client, df_source, sheet_id, sheet_name, values_onl
 
     if verbose:
         print(f'Successfully wrote {len(dataframe)} rows to sheet "{sheet_name}"')
+
+def append_dataframe_to_sheet(client, df_to_append, sheet_id, sheet_name, verbose=True, remove_duplicate=None, days_limit=None):
+    """
+    Append a Pandas DataFrame to an existing sheet within a Google Sheets document using an authenticated client.
+
+    Args:
+        client (gspread.client.Client): An authenticated gspread client for accessing Google Sheets.
+        df_to_append (pd.DataFrame): The Pandas DataFrame containing the data to be appended to the sheet.
+        sheet_id (str): The unique identifier of the Google Sheets document (spreadsheet) to append data to.
+        sheet_name (str): The name of the sheet within the document where data will be appended.
+        verbose (bool, optional): Whether to print status messages. Defaults to True.
+        remove_duplicate (str or list, optional): Column name(s) for removing duplicate rows. Defaults to None.
+        days_limit (int, optional): Number of days to limit the data to. Defaults to None (no filtering).
+    """
+    df_existing = read_data_from_sheet(client, sheet_id, sheet_name)
+    df_combined = pd.concat([df_to_append, df_existing], ignore_index=True)
+    df_combined.sort_values(by='date_local', inplace=True)
+
+    if remove_duplicate:
+        if isinstance(remove_duplicate, str):
+            remove_duplicate = [remove_duplicate]
+        before_rows = len(df_combined)
+        df_combined = df_combined.drop_duplicates(subset=remove_duplicate)
+        after_rows = len(df_combined)
+        duplicates_removed = before_rows - after_rows
+    else:
+        duplicates_removed = 0
+
+    if days_limit:
+        date_start = datetime.now() - timedelta(days=days_limit)
+        df_combined['date_local'] = pd.to_datetime(df_combined['date_local'])
+        df_combined = df_combined[df_combined['date_local'] >= date_start]
+
+    if verbose:
+        print(f'Updating {sheet_name}: {len(df_existing)} -> {len(df_combined)} rows '
+              f'({len(df_combined)-len(df_existing)} appended, {duplicates_removed} duplicates removed)')
+        
+    write_dataframe_to_sheet(client, df_combined, sheet_id, sheet_name, verbose=False)
