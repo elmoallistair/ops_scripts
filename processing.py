@@ -252,7 +252,7 @@ def process_cancellation(df_hcl, mappings):
         'total_cancelled_driver':'cancelled_booking_count',
         'cancel_rate_percentage':'cancellation_rate'}
 
-    cols_order, _ = mappings.values()
+    cols_order, *_ = mappings.values()
     df_hcl.rename(columns=map_rename, inplace=True)
     df_hcl['driver_id'] = df_hcl['driver_id'].astype(str)
     df_hcl['identifier'] = df_hcl['driver_id'] + df_hcl['vertical']
