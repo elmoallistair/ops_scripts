@@ -122,6 +122,7 @@ def append_dataframe_to_sheet(client, df_to_append, sheet_id, sheet_name, verbos
     """
     df_existing = read_data_from_sheet(client, sheet_id, sheet_name)
     df_combined = pd.concat([df_to_append, df_existing], ignore_index=True)
+    df_combined['date_local'] = pd.to_datetime(df_combined['date_local'], format='%Y-%m-%d').dt.date
     df_combined.sort_values(by='date_local', inplace=True)
 
     if remove_duplicate:
