@@ -134,9 +134,9 @@ def fix_taxi_types(text):
 
 def get_treatment_name(vertical, category=None):
     treatment_mapping = {
-        'F': 'DELIHCLGF',
-        'M': 'DELIHCLGM',
-        'E': 'DELIHCLGE'
+        'd': 'DELIHCLGF',
+        't': 'DELIHCLGM',
+        's': 'DELIHCLGE'
     }
     
     return treatment_mapping.get(vertical[-1], '')
