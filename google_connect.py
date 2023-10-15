@@ -31,48 +31,44 @@ def authenticate_client(json_key_file_path):
         print(f'Error authenticating client: {str(e)}')
         return None
 
-
 def read_data_from_sheet(client, sheet_id, sheet_name, verbose=False):
     """
     Read data from one or more sheets within a Google Sheets document using an authenticated client.
-
     Args:
         client (gspread.client.Client): An authenticated gspread client.
         sheet_id (str): The ID of the Google Sheets document to read data from.
         sheet_name (str or list of str): The name(s) of the sheet(s) within the document to read data from.
         verbose (bool, optional): If True, print a success message after reading data (default is True).
-
     Returns:
         pd.DataFrame or None: A pandas DataFrame containing the concatenated data from the specified sheet(s) if successful,
-        or None if no valid data frames were found. 
-
+        or None if no valid data frames were found.
     Example:
         df = read_data_from_sheet(your_authenticated_client, 'your_spreadsheet_id', ['your_spreadsheet_name(s)'])
     """
-    
+
     spreadsheet = client.open_by_key(sheet_id)
 
     if isinstance(sheet_name, str):
         sheet_name = [sheet_name]
 
-    data_frames = []
+    dataframes = []
     for name in sheet_name:
         try:
             worksheet = spreadsheet.worksheet(name)
             data = worksheet.get_all_values()
             dataframe = pd.DataFrame(data[1:], columns=data[0])
-            data_frames.append(dataframe)
+            dataframes.append(dataframe)
         except gspread.exceptions.WorksheetNotFound:
-            print(f'[Warning] Sheet {name} does not exist')
+            print(f"[Warning] Sheet '{name}' does not exist")
 
-    if not data_frames:
+    if not dataframes:
         return None
 
-    dataframe = pd.concat(data_frames, axis=0, ignore_index=True)
+    dataframe = pd.concat(dataframes, axis=0, ignore_index=True)
 
     if verbose:
-        print(f'Successfully read {len(dataframe)} rows from "{sheet_name}"')
-
+        sheet_names= sheet_name if isinstance(sheet_name, str) else ', '.join(sheet_name)
+        print(f'Successfully read {len(dataframe)} rows from {sheet_names}')
     return dataframe
 
 def write_dataframe_to_sheet(client, df_source, sheet_id, sheet_name, values_only=False, clear_sheet=True, verbose=True):
