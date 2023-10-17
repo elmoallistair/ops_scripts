@@ -107,7 +107,7 @@ def write_dataframe_to_sheet(client, df_source, sheet_id, sheet_name, values_onl
     if verbose:
         print(f'Successfully wrote {len(dataframe)} rows to sheet "{sheet_name}"')
 
-def append_dataframe_to_sheet(client, df_to_append, sheet_id, sheet_name, verbose=True, remove_duplicate=None, days_limit=None):
+def append_dataframe_to_sheet(client, df_to_append, sheet_id, sheet_name, verbose=True, remove_duplicate=None, days_limit=None, sort_by=None):
     """
     Append a Pandas DataFrame to an existing sheet within a Google Sheets document using an authenticated client.
 
@@ -119,11 +119,10 @@ def append_dataframe_to_sheet(client, df_to_append, sheet_id, sheet_name, verbos
         verbose (bool, optional): Whether to print status messages. Defaults to True.
         remove_duplicate (str or list, optional): Column name(s) for removing duplicate rows. Defaults to None.
         days_limit (int, optional): Number of days to limit the data to. Defaults to None (no filtering).
+        sort_by (list, optional): List of column names to sort the DataFrame by. Defaults to None (no sorting).
     """
     df_existing = read_data_from_sheet(client, sheet_id, sheet_name)
     df_combined = pd.concat([df_to_append, df_existing], ignore_index=True)
-    df_combined['date_local'] = pd.to_datetime(df_combined['date_local'], format='%Y-%m-%d').dt.date
-    df_combined.sort_values(by='date_local', inplace=True)
 
     if remove_duplicate:
         if isinstance(remove_duplicate, str):
@@ -139,9 +138,14 @@ def append_dataframe_to_sheet(client, df_to_append, sheet_id, sheet_name, verbos
         date_start = datetime.now() - timedelta(days=days_limit)
         df_combined['date_local'] = pd.to_datetime(df_combined['date_local'])
         df_combined = df_combined[df_combined['date_local'] >= date_start]
+        df_combined['date_local'] = pd.to_datetime(df_combined['date_local'], format='%Y-%m-%d').dt.date
+
+    if sort_by:
+        if isinstance(sort_by, list):
+            df_combined = df_combined.sort_values(by=sort_by, ignore_index=True)
 
     if verbose:
         print(f'Updating {sheet_name}: {len(df_existing)} -> {len(df_combined)} rows '
               f'({len(df_combined)-len(df_existing)} appended, {duplicates_removed} duplicates removed)')
-        
+
     write_dataframe_to_sheet(client, df_combined, sheet_id, sheet_name, verbose=False)
