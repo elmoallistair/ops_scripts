@@ -11,6 +11,7 @@ def execute_presto_query(query, username, password):
         data =  pd.DataFrame(cursor.fetchall())
         data.columns = [i[0] for i in cursor.description]
         print(f'Successfully retrieved {len(data)} rows')
+        return data
 
     except Exception as e:
         print(f'An error occurred: {str(e)}')
