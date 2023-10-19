@@ -30,13 +30,17 @@ def clean_sample_data(df_reviews, min_member=2):
 
     return df_reviews
 
-def remove_duplicated_sample(df_reviews):
+def remove_duplicated_sample(df_reviews, prioritize_latest=True):
     df_reviews = df_reviews.copy()
+
+    if prioritize_latest:
+        df_reviews.sort_values(by='date_append', ascending=False, inplace=True)
+        
     df_reviews['join'] = df_reviews['tag_transform'] + ' ' + df_reviews['review_transform']
     df_reviews['occurrence'] = df_reviews.groupby('review_transform')['join'].transform('count')
 
-    df_reviews = df_reviews.sort_values(by='occurrence', ascending=False)
-    df_reviews = df_reviews.drop_duplicates(subset='review_transform', keep='first')
+    df_reviews.sort_values(by='occurrence', ascending=False, inplace=True)
+    df_reviews.drop_duplicates(subset='review_transform', keep='first', inplace=True)
     df_reviews.reset_index(drop=True, inplace=True)
     
     return df_reviews
