@@ -44,3 +44,23 @@ def remove_duplicated_sample(df_reviews, prioritize_latest=True):
     df_reviews.reset_index(drop=True, inplace=True)
     
     return df_reviews
+
+def filter_class(df, exc_class, target, min_population=2):
+    """
+    Filter a DataFrame based on the values in the specified target column, excluding specified classes and retaining tags with a minimum population count.
+
+    Parameters:
+    - df: The input DataFrame to be filtered.
+    - exc_class: A list of classes to be excluded from the DataFrame.
+    - target: The name of the column containing the tags/classes.
+    - min_population: The minimum population count for a class to be retained. Tags with a population count less than this value will be excluded.
+
+    Returns:
+    - df_filtered: The filtered DataFrame that excludes specified classes and retains tags with the minimum population.
+    """
+    
+    df_filtered = df[~df[target].isin(exc_class)].copy()
+    tag_counts = df_filtered[target].value_counts()
+    tags_to_keep = tag_counts[tag_counts >= min_population].index
+    df_filtered = df_filtered[df_filtered[target].isin(tags_to_keep)]
+    return df_filtered
