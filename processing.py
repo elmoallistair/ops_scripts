@@ -63,6 +63,13 @@ def order_column_by_template(dataframe, cols_lst):
 
     return dataframe_temp
 
+def correct_prediction_label(label, lookup_df, lookup_column='transform', result_column='origin'):
+    match = lookup_df[lookup_df[lookup_column] == label]
+    if not match.empty:
+        return match.iloc[0][result_column]
+    else:
+        return label
+
 def text_preprocessing(text, keep_punctuations=True):
     text = text.lower().strip()
     text = re.sub(r'\s+', ' ', text)
@@ -88,13 +95,12 @@ def remove_short_reviews(df_reviews, column_name, min_word_count=2, min_letter_l
 
 def create_booking_metadata(row):
     metadata = {
-        'batch': 1 if row['is_batching'] else 0,
-        'parking': 1 if pd.notna(row['parking_fee']) else 0,
-        'cashless': 1 if pd.notna(row['is_cashless_booking']) else 0,
-        'pick_late': int(max(0, row['pick_late'] // 10)) if pd.notna(row['pick_late']) else 0,
-        'drop_late': int(max(0, row['drop_late'] // 10)) if pd.notna(row['drop_late']) else 0,
-        'pick_poi': ' '.join(row['pickup_keywords'].split()[:2]) if pd.notna(row['pickup_keywords']) else 'null',
-        'drop_poi': ' '.join(row['dropoff_keywords'].split()[:2]) if pd.notna(row['dropoff_keywords']) else 'null'
+        'bc': 1 if row['is_batching'] else 0,
+        'pf': 1 if pd.notna(row['parking_fee']) else 0,
+        'pl': int(max(0, row['pick_late'] // 10)) if pd.notna(row['pick_late']) else 0,
+        'dl': int(max(0, row['drop_late'] // 10)) if pd.notna(row['drop_late']) else 0,
+        'pu': ' '.join(row['pickup_keywords'].split()[:2]) if pd.notna(row['pickup_keywords']) else 'null',
+        'do': ' '.join(row['dropoff_keywords'].split()[:2]) if pd.notna(row['dropoff_keywords']) else 'null'
     }
     return metadata
 
