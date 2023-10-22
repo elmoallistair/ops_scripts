@@ -20,7 +20,6 @@ def get_n_last_date_range(n):
 
     return date_start, date_end
 
-
 def get_date_range(start_date, end_date):
     date_list = []
     current_date = dt.datetime.strptime(start_date, '%Y-%m-%d')
@@ -87,20 +86,6 @@ def remove_short_reviews(df_reviews, column_name, min_word_count=2, min_letter_l
 
     return df_reviews_clean
 
-def get_confidence_label(conf_score):
-    thresholds = {0.8: "high",
-                  0.6: "medium",
-                  0.0: "low"}
-    for threshold, label in thresholds.items():
-        if conf_score >= threshold:
-            return label
-        
-def get_prediction_with_model(review, model, vectorizer):
-    new_X = vectorizer.transform([review])
-    pred = model.predict(new_X)[0]
-    prob = [max(i) for i in model.predict_proba(new_X)][0]
-    return pred, prob
-    
 def create_booking_metadata(row):
     metadata = {
         'batch': 1 if row['is_batching'] else 0,
