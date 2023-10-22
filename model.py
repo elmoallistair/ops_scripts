@@ -1,11 +1,10 @@
+from sklearn.model_selection import train_test_split
 import os
 import joblib
 from datetime import datetime
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-
-def split_dataframe_stratified(df, feature, target, test_size=0.2, random_state=None):
+def split_dataset(df, feature, target, test_size=0.2, random_state=None):
     """
     Split a DataFrame into training and testing sets with stratification.
 
@@ -17,7 +16,7 @@ def split_dataframe_stratified(df, feature, target, test_size=0.2, random_state=
     - random_state: An optional random seed for reproducibility (default is None).
 
     Returns:
-    - df_train: The training DataFrame.
+    - df_train: The training DatsaFrame.
     - df_test: The testing DataFrame.
     """
 
@@ -29,74 +28,86 @@ def split_dataframe_stratified(df, feature, target, test_size=0.2, random_state=
 
     return df_train, df_test
 
-def vectorize_dataset(df, feature):
+def train_model(X, y, model, vectorizer):
     """
-    Train a TF-IDF vectorizer on a DataFrame and apply it to the same DataFrame.
+    Train a machine learning model using text data and a vectorizer.
 
     Parameters:
-    - df: The input DataFrame containing both training and testing data.
-    - feature: The name of the column containing text data (X).
+    - X: A list or array of text data to be transformed and used as features.
+    - y: A list or array of target labels.
+    - model: The machine learning model to be trained.
+    - vectorizer: The feature vectorizer for transforming text data into numerical features.
 
     Returns:
-    - df_tfidf: TF-IDF vectors for the text data in the input DataFrame.
+    - model: The trained machine learning model.
+    - vectorizer: The feature vectorizer.
     """
+    X_transformed = vectorizer.fit_transform(X)
+    X_train, X_test, y_train, y_test = train_test_split(X_transformed, y, test_size=0.2, 
+                                                        random_state=42, stratify=y)
 
-    tfidf_vectorizer = TfidfVectorizer()
-    df_tfidf = tfidf_vectorizer.fit_transform(df[feature])
+    model.fit(X_train, y_train)
+    test_score = model.score(X_test, y_test)
+    print(f"[INFO] Model Score: {test_score:.2F}")
 
-    return df_tfidf
+    return model, vectorizer
 
-def train_model(X_train_tfidf, y_train, model):
+def evaluate_model(X, y_true, model, feature):
     """
-    Train a classification model on TF-IDF vectors.
+    Evaluate a machine learning model's performance using text data and a feature vectorizer.
 
     Parameters:
-    - X_train_tfidf: TF-IDF vectors for the training text data.
-    - y_train: The target variable for the training data.
-    - model: The classification model to be trained.
+    - X: Dataset a to be transformed and used for predictions.
+    - y_true: A list or array of the true target labels for the provided text data.
+    - model: The trained machine learning model to be evaluated.
+    - feature: The feature vectorizer used to transform the text data.
 
     Returns:
-    - trained_model: The trained classification model.
+    - df_result: A DataFrame containing review text, true labels, and model predictions.
+    - df_matrices: A confusion matrix for model performance assessment.
+    - df_performance: A classification report with performance metrics for each class.
+
+    Example usage:
+    # Assuming you have a list of text data 'X', true labels 'y_true', and a trained model and feature
+    df_result, df_matrices, df_performance = evaluate_model(X, y_true, trained_model, features)
     """
+    X_transformed = feature.transform(X)
+    y_pred = model.predict(X_transformed)
 
-    trained_model = model.fit(X_train_tfidf, y_train)
+    accuracy = accuracy_score(y_true, y_pred)
+    df_result = pd.DataFrame({'review': X, 'tag_transform': y_true, 'prediction': y_pred})
+    df_matrices = confusion_matrix(y_true, y_pred)
+    df_performance = classification_report(y_true, y_pred, target_names=model.classes_)
+    print(f'[INFO] Model successfully evaluated with score : {accuracy:.2f}')
 
-    return trained_model
+    return df_result, df_matrices, df_performance
 
-def save_model_and_feature(model, feature, base_path, identifier, backup=True):
+def save_model_and_feature(model, feature, base_path, task_id, model_id, backup=True):
     """
-    Save a machine learning model and its associated feature vectorizer to specified directories.
-    
+    Save a machine learning model, its associated feature vectorizer, and identifiers to specified directories.
+
     Parameters:
     - model: The trained machine learning model to be saved.
     - feature: The feature vectorizer used for text data transformation.
     - base_path: The base directory path where the 'latest' and 'backup' directories will be created.
-    - identifier: A unique identifier for the model and feature files.
-    - backup: If True, create backup copies of the model and feature files.
-    
-    The function saves the model and feature in the 'latest' directory and, if specified, in the 'backup' directory. 
-    It checks for file existence and provides warnings if files are being overwritten.
-    
-    Example usage:
-    base_path = 'models'
-    save_model_and_feature(trained_model, features, base_path, identifier='deli_prt', backup=True)
+    - task_id: An identifier for the task or purpose.
+    - model_id: An identifier for the algorithm or model name.
+    - backup: If True, create backup copies of the model, feature, and vectorizer files.
     """
-    def check_file_exist(file_path, directory_name):
-        filename = os.path.basename(file_path)
-        if os.path.isfile(file_path):
-            print(f"[WARNING] The '{filename}' file in the '{directory_name}' directory already exists and is being overwritten.")
 
     latest_path = os.path.join(base_path, 'latest')
     os.makedirs(latest_path, exist_ok=True)
 
-    model_latest_path = os.path.join(latest_path, f'{identifier}_model_latest.joblib')
-    feature_latest_path = os.path.join(latest_path, f'{identifier}_feature_latest.joblib')
+    model_latest_path = os.path.join(latest_path, f'{task_id}_model_latest_{model_id}.joblib')
+    feature_latest_path = os.path.join(latest_path, f'{task_id}_feature_latest_{model_id}.joblib')
+
+    if os.path.exists(model_latest_path) or os.path.exists(feature_latest_path):
+        print(f"[WARNING] The model or feature already exist in 'latest' and is being overwritten..")
+
 
     joblib.dump(model, model_latest_path)
     joblib.dump(feature, feature_latest_path)
 
-    check_file_exist(model_latest_path, 'latest')
-    check_file_exist(feature_latest_path, 'latest')
     print(f'[SUCCESS] Model and feature saved to {base_path}/latest')
 
     if backup:
@@ -104,13 +115,13 @@ def save_model_and_feature(model, feature, base_path, identifier, backup=True):
         backup_path = os.path.join(base_path, 'backup')
 
         os.makedirs(backup_path, exist_ok=True)
-        model_backup_path = os.path.join(backup_path, f'{identifier}_model_{current_date}.joblib')
-        feature_backup_path = os.path.join(backup_path, f'{identifier}_feature_{current_date}.joblib')
+        model_backup_path = os.path.join(backup_path, f'{task_id}_model_{current_date}.joblib')
+        feature_backup_path = os.path.join(backup_path, f'{task_id}_feature_{current_date}.joblib')
+
+        if os.path.exists(model_backup_path) or os.path.exists(feature_backup_path):
+            print(f"[WARNING] The model or feature already exist in 'backup' and is being overwritten..")
 
         joblib.dump(model, model_backup_path)
         joblib.dump(feature, feature_backup_path)
 
-        check_file_exist(model_backup_path, 'backup')
-        check_file_exist(feature_backup_path, 'backup')
-    
         print(f'[SUCCESS] Backup of model and feature saved to {base_path}/backup')
