@@ -114,6 +114,10 @@ def get_suspicious_reviews(df):
 
     return df
 
+def get_wheel_count(row):
+    fleet_name = row['fleet_name'].lower()
+    return '4W' if fleet_name.startswith(('uni', 'tpi', 'gc')) else '2W'
+        
 def fix_taxi_types(text):
     text = text.replace("__", "::")
     text = text.replace("_", "")
