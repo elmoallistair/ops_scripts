@@ -105,7 +105,6 @@ def create_booking_metadata(row):
     return metadata
 
 def get_suspicious_reviews(df):
-    print('suspicius')
     class_exclude = ['Unclear', 'Mex Related', 'Product Related']
     df['is_duplicated'] = df.duplicated(subset=['passenger_id', 'review_or_remarks'], keep=False)
     df.loc[df['is_duplicated'] & ~df['prediction'].isin(class_exclude), 'prediction'] = 'Suspicious'
@@ -147,13 +146,9 @@ def process_pax_rating(df_prt_raw, model, feature, mappings):
     df_prt['pax_count'] = df_prt.groupby('passenger_id')['review_or_remarks'].transform('count')
     df_prt['booking_meta'] = df_prt.apply(create_booking_metadata, axis=1)
 
-    df_prt[['prediction', 'conf_score']] = df_prt["review_or_remarks"].apply(get_prediction_with_model, args=(model, feature)).apply(pd.Series)
-    df_prt['confidence_label'] = df_prt['conf_score'].apply(get_confidence_label)
-    df_prt['prediction'] = df_prt['prediction'].apply(lambda x: lookup_value(x, pred_rename, 'transform', 'origin'))
-
     df_prt = remove_short_reviews(df_prt, column_name="review_or_remarks", min_word_count=2)
     df_prt = order_column_by_template(df_prt, cols_order['prt'])
-    df_prt.sort_values(['prediction', 'conf_score', 'passenger_id'], inplace=True)
+    df_prt.sort_values(['date_local'], inplace=True)
 
     df_prt = get_suspicious_reviews(df_prt)
     df_prt['source'] = 'Comments'
