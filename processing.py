@@ -30,6 +30,9 @@ def get_date_range(start_date, end_date):
 
     return date_list
 
+def remove_empty_rows(row):
+    return any(isinstance(value, str) and value.strip() == '' or pd.isna(value) for value in row)
+    
 def lookup_value(df_source_key, df_target, old_value, new_value):
     matching_row = df_target[df_target[old_value] == df_source_key]
     if len(matching_row) > 0:
@@ -265,7 +268,7 @@ def process_gsid_improper(df_gsid, mappings):
             return 'Driver Early Completed'
         return 'Not confirm the delivery address'
 
-    cols_order, cols_rename, _ = mappings.values()
+    cols_order, cols_rename = mappings.values()
     df_gsid = rename_columns_with_template(df_gsid, cols_rename)
     df_gsid = validate_tickets(df_gsid)
     df_gsid = df_gsid[df_gsid['is_daxearlycompleted'] == 'True']
