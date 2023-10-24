@@ -136,7 +136,7 @@ def get_treatment_name(vertical, category=None):
     return treatment_mapping.get(vertical[-1], '')
 
 def process_pax_rating(df_prt_raw, model, feature, mappings):
-    cols_order, cols_rename, pred_rename = mappings.values()
+    cols_order, cols_rename = mappings.values()
     print('Cleaning reviews...')
     df_prt = df_prt_raw.copy()
     df_prt = rename_columns_with_template(df_prt, cols_rename)
@@ -156,7 +156,7 @@ def process_pax_rating(df_prt_raw, model, feature, mappings):
     return df_prt
 
 def process_chat(df_chat, df_keywords, mappings, identifier):
-    cols_order, cols_rename, _ = mappings.values()
+    cols_order, _ = mappings.values()
     df_chat = rename_columns_with_template(df_chat, cols_rename)
     df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: text_preprocessing(x, keep_punctuations=False))
 
@@ -203,7 +203,7 @@ def process_zendesk(df_zendesk, gs_tags, mappings):
         else:
             return None
 
-    cols_order, cols_rename, _ = mappings.values()
+    cols_order, _ = mappings.values()
     df_zendesk = rename_columns_with_template(df_zendesk, cols_rename)
     df_zendesk = df_zendesk[df_zendesk['id_gs_coc'].notnull() & (df_zendesk['id_gs_coc'] != '')]
     df_zendesk['date_local'] = pd.to_datetime(df_zendesk['date_local']).dt.date
@@ -242,7 +242,7 @@ def process_cancellation(df_hcl, mappings):
         'total_cancelled_driver':'cancelled_booking_count',
         'cancel_rate_percentage':'cancellation_rate'}
 
-    cols_order, *_ = mappings.values()
+    cols_order, _ = mappings.values()
     df_hcl.rename(columns=map_rename, inplace=True)
     df_hcl['driver_id'] = df_hcl['driver_id'].astype(str)
     df_hcl['identifier'] = df_hcl['driver_id'] + df_hcl['vertical']
