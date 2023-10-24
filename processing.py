@@ -7,7 +7,7 @@ import datetime as dt
 def get_n_last_date_range(n):
     today_date = dt.date.today()
     date_format = "%Y-%m-%d"
-
+co
     if n == 0:
         date_start = date_end = today_date.strftime(date_format)
     elif n == 1:
@@ -159,7 +159,7 @@ def process_pax_rating(df_prt_raw, model, feature, mappings):
     return df_prt
 
 def process_chat(df_chat, df_keywords, mappings, identifier):
-    cols_order, _ = mappings.values()
+    cols_order, cols_rename = mappings.values()
     df_chat = rename_columns_with_template(df_chat, cols_rename)
     df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: text_preprocessing(x, keep_punctuations=False))
 
@@ -206,7 +206,7 @@ def process_zendesk(df_zendesk, gs_tags, mappings):
         else:
             return None
 
-    cols_order, _ = mappings.values()
+    cols_order, cols_rename = mappings.values()
     df_zendesk = rename_columns_with_template(df_zendesk, cols_rename)
     df_zendesk = df_zendesk[df_zendesk['id_gs_coc'].notnull() & (df_zendesk['id_gs_coc'] != '')]
     df_zendesk['date_local'] = pd.to_datetime(df_zendesk['date_local']).dt.date
