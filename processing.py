@@ -7,7 +7,6 @@ import datetime as dt
 def get_n_last_date_range(n):
     today_date = dt.date.today()
     date_format = "%Y-%m-%d"
-co
     if n == 0:
         date_start = date_end = today_date.strftime(date_format)
     elif n == 1:
