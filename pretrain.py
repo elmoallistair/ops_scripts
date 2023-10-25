@@ -19,8 +19,8 @@ def transform_class(tag):
     return tag_transform
 
 def clean_sample_data(df_reviews, min_member=2):
-    df_reviews['review_transform'] = df_reviews['review'].apply(transform_review)
-    df_reviews['tag_transform'] = df_reviews['tag'].apply(transform_class)
+    df_reviews['review_recorded'] = df_reviews['review'].apply(transform_review)
+    df_reviews['tag_recorded'] = df_reviews['tag'].apply(transform_class)
     df_reviews.dropna(inplace=True)
 
     value_counts = df_reviews['tag'].value_counts()
@@ -36,11 +36,11 @@ def remove_duplicated_sample(df_reviews, prioritize_latest=True):
     if prioritize_latest:
         df_reviews.sort_values(by='date_append', ascending=False, inplace=True)
         
-    df_reviews['join'] = df_reviews['tag_transform'] + ' ' + df_reviews['review_transform']
-    df_reviews['occurrence'] = df_reviews.groupby('review_transform')['join'].transform('count')
+    df_reviews['join'] = df_reviews['tag_recorded'] + ' ' + df_reviews['review_recorded']
+    df_reviews['occurrence'] = df_reviews.groupby('review_recorded')['join'].transform('count')
 
     df_reviews.sort_values(by='occurrence', ascending=False, inplace=True)
-    df_reviews.drop_duplicates(subset='review_transform', keep='first', inplace=True)
+    df_reviews.drop_duplicates(subset='review_recorded', keep='first', inplace=True)
     df_reviews.reset_index(drop=True, inplace=True)
     
     return df_reviews
