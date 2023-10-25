@@ -58,26 +58,44 @@ def evaluate_model(X, y_true, model, feature):
     Evaluate a machine learning model's performance using text data and a feature vectorizer.
 
     Parameters:
-    - X: Dataset a to be transformed and used for predictions.
+    - X: Dataset to be transformed and used for predictions.
     - y_true: A list or array of the true target labels for the provided text data.
     - model: The trained machine learning model to be evaluated.
     - feature: The feature vectorizer used to transform the text data.
 
     Returns:
-    - df_result: A DataFrame containing review text, true labels, and model predictions.
+    - df_result: A DataFrame containing review text, true labels, model predictions, and confidence scores.
     - df_matrices: A confusion matrix for model performance assessment.
-    - df_performance: A classification report with performance metrics for each class.
+    - df_performance: A DataFrame containing performance metrics for each class.
+
+    Example usage:
+    # Assuming you have a list of text data 'X', true labels 'y_true', and a trained model and feature
+    df_result, df_matrices, df_performance = evaluate_model(X, y_true, trained_model, features)
     """
     X_transformed = feature.transform(X)
     y_pred = model.predict(X_transformed)
+    
+    if hasattr(model, 'predict_proba'):
+        confidence_scores = model.predict_proba(X_transformed).max(axis=1)
+    else:
+        confidence_scores = [None] * len(y_true)
 
     accuracy = accuracy_score(y_true, y_pred)
-    df_result = pd.DataFrame({'review': X, 'tag_transform': y_true, 'prediction': y_pred})
+    df_result = pd.DataFrame({'review': X, 'actual': y_true, 'prediction': y_pred, 'confidence': confidence_scores})
+    df_result['confidence'] = df_result['confidence'].apply(lambda x: f'{x:.2f}' if x is not None else None)
+    
     df_matrices = confusion_matrix(y_true, y_pred)
-    df_performance = classification_report(y_true, y_pred, target_names=model.classes_)
-    print(f'[INFO] Model successfully evaluated with score : {accuracy:.2f}')
+    
+    report = classification_report(y_true, y_pred)
+    lines = report.split('\n')
+    class_names = [line.split()[0] for line in lines[2:-5]]
+    metrics = [line.split()[1:] for line in lines[2:-5]]
+    df_performance = pd.DataFrame(metrics, columns=['precision', 'recall', 'f1-score', 'support'], index=class_names)
+    
+    print(f'[INFO] Model successfully evaluated with score: {accuracy:.2f}')
 
     return df_result, df_matrices, df_performance
+
 
 def save_model_and_feature(model, feature, base_path, task_id, model_id, backup=True):
     """
