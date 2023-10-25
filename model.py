@@ -1,6 +1,7 @@
 from sklearn.model_selection import train_test_split
 import os
 import joblib
+import pandas as pd
 from datetime import datetime
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
@@ -66,10 +67,6 @@ def evaluate_model(X, y_true, model, feature):
     - df_result: A DataFrame containing review text, true labels, and model predictions.
     - df_matrices: A confusion matrix for model performance assessment.
     - df_performance: A classification report with performance metrics for each class.
-
-    Example usage:
-    # Assuming you have a list of text data 'X', true labels 'y_true', and a trained model and feature
-    df_result, df_matrices, df_performance = evaluate_model(X, y_true, trained_model, features)
     """
     X_transformed = feature.transform(X)
     y_pred = model.predict(X_transformed)
