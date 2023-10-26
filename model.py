@@ -53,7 +53,7 @@ def train_model(X, y, model, vectorizer):
 
     return model, vectorizer
 
-def evaluate_model(X, y_true, model, feature):
+def evaluate_model(X, y_true, model, feature, class_weights=None):
     """
     Evaluate a machine learning model's performance using text data and a feature vectorizer.
 
@@ -62,15 +62,12 @@ def evaluate_model(X, y_true, model, feature):
     - y_true: A list or array of the true target labels for the provided text data.
     - model: The trained machine learning model to be evaluated.
     - feature: The feature vectorizer used to transform the text data.
+    - class_weights: A dictionary of class weights if you want to calculate weighted average.
 
     Returns:
     - df_result: A DataFrame containing review text, true labels, model predictions, and confidence scores.
     - df_matrices: A confusion matrix for model performance assessment.
-    - df_performance: A DataFrame containing performance metrics for each class.
-
-    Example usage:
-    # Assuming you have a list of text data 'X', true labels 'y_true', and a trained model and feature
-    df_result, df_matrices, df_performance = evaluate_model(X, y_true, trained_model, features)
+    - df_performance: A DataFrame containing performance metrics for each class, accuracy, macro avg, and weighted avg.
     """
     X_transformed = feature.transform(X)
     y_pred = model.predict(X_transformed)
@@ -82,20 +79,38 @@ def evaluate_model(X, y_true, model, feature):
 
     accuracy = accuracy_score(y_true, y_pred)
     df_result = pd.DataFrame({'review': X, 'actual': y_true, 'prediction': y_pred, 'confidence': confidence_scores})
-    df_result['confidence'] = df_result['confidence'].apply(lambda x: f'{x:.2f}' if x is not None else None)
-    
+    df_result['confidence'] = df_result['confidence'].apply(lambda x: f'{x:.4f}' if x is not None else None)
     df_matrices = confusion_matrix(y_true, y_pred)
+    report = classification_report(y_true, y_pred, target_names=class_weights.keys() if class_weights else None, output_dict=True)
     
-    report = classification_report(y_true, y_pred)
-    lines = report.split('\n')
-    class_names = [line.split()[0] for line in lines[2:-5]]
-    metrics = [line.split()[1:] for line in lines[2:-5]]
-    df_performance = pd.DataFrame(metrics, columns=['precision', 'recall', 'f1-score', 'support'], index=class_names)
-    
-    print(f'[INFO] Model successfully evaluated with score: {accuracy:.2f}')
+    if class_weights:
+        weighted_avg = {}
+        for class_name, weights in class_weights.items():
+            precision = report[class_name]['precision']
+            recall = report[class_name]['recall']
+            f1 = report[class_name]['f1-score']
+            support = report[class_name]['support']
+            
+            weighted_precision = precision * support
+            weighted_recall = recall * support
+            weighted_f1 = f1 * support
+            
+            weighted_avg[class_name] = {
+                'precision': f'{weighted_precision:.4f}',
+                'recall': f'{weighted_recall:.4f}',
+                'f1-score': f'{weighted_f1:.4f}',
+                'support': str(support)
+            }
 
+        total_weight = sum([sum(weights.values()) for weights in class_weights.values()])
+        for metric in ['precision', 'recall', 'f1-score']:
+            weighted_avg['weighted avg'][metric] = f'{(sum([weights[metric] for weights in class_weights.values()]) / total_weight):.4f}'
+        weighted_avg['weighted avg']['support'] = str(sum([weights['support'] for weights in class_weights.values()]))
+        report['weighted avg'] = weighted_avg
+    
+    df_performance = pd.DataFrame.from_dict(report).transpose()
+    print(f'[INFO] Model successfully evaluated with score: {accuracy:.4f}')
     return df_result, df_matrices, df_performance
-
 
 def save_model_and_feature(model, feature, base_path, task_id, model_id, backup=True):
     """
