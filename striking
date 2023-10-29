@@ -1,0 +1,15 @@
+import pandas as pd
+
+def check_processed_tickets(df_new_tickets, df_record, right_id, left_id):
+    processed_tickets = set(df_record[left_id].unique())
+    df_new_tickets['processed'] = False
+
+    for index, row in df_new_tickets.iterrows():
+        identifier = row[right_id]
+        if identifier in processed_tickets:
+            df_new_tickets.at[index, 'processed'] = True
+
+    df_tickets = df_new_tickets[df_new_tickets['processed'] == False]
+    
+    print("[INFO] Removed {} processed tickets".format(len(df_new_tickets) - len(df_tickets)))
+    return df_tickets
