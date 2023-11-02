@@ -126,6 +126,13 @@ def fix_taxi_types(text):
     text = re.sub(r'(Grab|::)([a-z])', lambda x: x.group(1) + x.group(2).upper(), text)
     return text
 
+def get_taxi_type_simple(text):
+    if "::" in text:
+        elements = text.split("::")
+        return elements[0]
+    else:
+        return text
+
 # ========== BAU PROCESSING ==========
 
 def get_treatment_name(vertical, category=None):
