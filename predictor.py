@@ -2,6 +2,7 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
+from flashtext import KeywordProcessor
 
 def get_prediction_with_model(df_review, model, vectorizer, col_name):
     """
@@ -24,6 +25,56 @@ def get_prediction_with_model(df_review, model, vectorizer, col_name):
     confidences = [round(conf, 2) for conf in confidences]
 
     return predictions, confidences
+
+def get_prediction_with_keywords(df_review, df_keywords, col_target):
+    """
+    Get the prediction with existing processed record and calculate confidence scores.
+
+    Args:
+      df_review (DataFrame): A DataFrame containing new tickets.
+      df_keywords (DataFrame): A DataFrame containing compiled processed record.
+      col_target (str): The name of the column containing the reviews in the df_review DataFrame.
+
+    Returns:
+      list: A list of predicted labels for each review in df_review.
+    """
+    def label_check(text, labels):
+        """
+        Check for the presence of labels in a given review text.
+
+        Args:
+          text (str): The review text to check.
+          labels (Series): A Series containing the label categories to check against.
+
+        Returns:
+          str: The matched label or 'not_found' if no label is found.
+        """
+        iter = 0
+        check = False
+        while ((iter < len(labels)) & (check is False)):
+            check = labels[iter] in text
+            iter += 1
+
+        if check:
+            return labels[iter-1]
+        return 'not_found'
+
+    keywords = df_keywords.melt()
+    keywords = keywords[~(keywords.applymap(lambda x: str(x).strip() == '').any(axis=1))]
+    keywords = keywords.dropna(how='all', thresh=1)
+    keywords = keywords[keywords['value'].str.len() > 0].reset_index(drop=True)
+    keywords['variable'] = keywords['variable'].apply(pretrain.transform_class)
+    keywords['variable'] = "<!>" + keywords['variable'] + "<!>"
+
+    processor = KeywordProcessor(case_sensitive=False)
+    for i in range(len(keywords)):
+        processor.add_keyword(str(keywords['value'][i]).lower(), keywords['variable'][i])
+
+    all_cat = keywords['variable'].drop_duplicates().map(lambda x: x.lstrip('<!>').rstrip('<!>')).reset_index(drop=True)
+    processed = [processor.replace_keywords(df_review[col_target][i].lower()).split("<!>") for i in range(len(df_review))]
+    matched_labels = [label_check(fb, all_cat) for fb in processed]
+
+    return matched_labels
 
 def get_prediction_with_record(df_review, df_record, col_name, min_occurrence=2):
     """
