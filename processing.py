@@ -164,42 +164,16 @@ def process_pax_rating(df_prt_raw, model, feature, mappings):
 
     return df_prt
 
-def process_chat(df_chat, df_keywords, mappings, identifier):
+def process_chat(df_chat, mappings, identifier):
     cols_order, cols_rename = mappings.values()
-    df_chat = rename_columns_with_template(df_chat, cols_rename)
-    df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: text_preprocessing(x, keep_punctuations=False))
-
-    true_keywords = " " + " | ".join(df_keywords["true_keywords"].dropna().str.strip().loc[lambda x: x != ""]) + " "
-    false_keywords = " " + " | ".join(df_keywords["false_keywords"].dropna().str.strip().loc[lambda x: x != ""]) + " "
-
-    df_chat["review_or_remarks"] = df_chat["review_or_remarks"].apply(lambda x: " " + x.strip() + " ")
-
-    prefix_keywords = list(df_keywords["prefix"].dropna().str.strip().loc[lambda x: x != ""])
-    prefix_keywords = [f" {keyword}" for keyword in prefix_keywords]
-    prefix_filter = df_chat["review_or_remarks"].apply(lambda x: any(x.startswith(prefix) for prefix in prefix_keywords))
-
-    if identifier == 'attribute':
-        df_chat = df_chat[df_chat["review_or_remarks"].str.contains(true_keywords, case=False)]
-    
-    df_chat = df_chat[~prefix_filter]
-    df_chat = df_chat[~df_chat["review_or_remarks"].str.contains(false_keywords, case=False)]
-    df_chat = df_chat[~df_chat["review_or_remarks"].str.endswith("?")]
-    df_chat["review_or_remarks"] = df_chat["review_or_remarks"].str.strip()
-
-    df_chat = remove_short_reviews(df_chat, column_name="review_or_remarks", min_word_count=2)
+    df_chat = processing.rename_columns_with_template(df_chat, cols_rename)
+    df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: processing.text_preprocessing(x))
+    df_chat = processing.remove_short_reviews(df_chat, column_name="review_or_remarks", min_word_count=2)
     df_chat = order_column_by_template(df_chat, cols_order[identifier])
     df_chat.drop_duplicates(subset=['booking_code'], inplace=True)
     df_chat.sort_values(['review_or_remarks'], inplace=True)
-
-    disp = {
-        'attribute': 'Dax Attribute',
-        'different_driver': 'Different Driver',
-        'parking' : 'DAX asking for tips & parking fee improperly'
-    }
-    
-    df_chat = order_column_by_template(df_chat, cols_order[identifier])
+    df_chat.reset_index(drop=True, inplace=True)
     df_chat['date_local'] = pd.to_datetime(df_chat['date_local']).dt.date
-    df_chat['sub_disposition'] = disp[identifier]
     df_chat['remarks'] = 'Valid'
     df_chat['source'] = 'Chats'
 
