@@ -1,4 +1,6 @@
 import os
+import re
+import string
 import joblib
 import numpy as np
 import pandas as pd
@@ -26,7 +28,7 @@ def get_prediction_with_model(df_review, model, vectorizer, col_name):
 
     return predictions, confidences
 
-def get_prediction_with_keywords(df_review, df_keywords, col_target):
+def get_prediction_with_keywords(df_review, df_keywords, col_target, transform=False):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
@@ -39,16 +41,7 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target):
       list: A list of predicted labels for each review in df_review.
     """
     def label_check(text, labels):
-        """
-        Check for the presence of labels in a given review text.
-
-        Args:
-          text (str): The review text to check.
-          labels (Series): A Series containing the label categories to check against.
-
-        Returns:
-          str: The matched label or 'not_found' if no label is found.
-        """
+        """Check for the presence of labels in a given review text."""
         iter = 0
         check = False
         while ((iter < len(labels)) & (check is False)):
@@ -58,13 +51,23 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target):
         if check:
             return labels[iter-1]
         return 'not_found'
+    
+    def transform_class(tag):
+        """Transforming class or label name."""
+        tag_transform = re.sub(rf'[{string.punctuation}]', ' ', tag)
+        tag_transform = re.sub(r'\s+', ' ', tag_transform)
+        tag_transform = tag_transform.lower().strip().replace(' ', '_')
+    
+        return tag_transform
 
     keywords = df_keywords.melt()
     keywords = keywords[~(keywords.applymap(lambda x: str(x).strip() == '').any(axis=1))]
     keywords = keywords.dropna(how='all', thresh=1)
     keywords = keywords[keywords['value'].str.len() > 0].reset_index(drop=True)
-    keywords['variable'] = keywords['variable'].apply(pretrain.transform_class)
     keywords['variable'] = "<!>" + keywords['variable'] + "<!>"
+
+    if transform:
+        keywords['variable'] = keywords['variable'].apply(transform_class)
 
     processor = KeywordProcessor(case_sensitive=False)
     for i in range(len(keywords)):
