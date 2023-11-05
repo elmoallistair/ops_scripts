@@ -166,9 +166,9 @@ def process_pax_rating(df_prt_raw, model, feature, mappings):
 
 def process_chat(df_chat, mappings, identifier):
     cols_order, cols_rename = mappings.values()
-    df_chat = processing.rename_columns_with_template(df_chat, cols_rename)
-    df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: processing.text_preprocessing(x))
-    df_chat = processing.remove_short_reviews(df_chat, column_name="review_or_remarks", min_word_count=2)
+    df_chat = rename_columns_with_template(df_chat, cols_rename)
+    df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: text_preprocessing(x))
+    df_chat = remove_short_reviews(df_chat, column_name="review_or_remarks", min_word_count=2)
     df_chat = order_column_by_template(df_chat, cols_order[identifier])
     df_chat.drop_duplicates(subset=['booking_code'], inplace=True)
     df_chat.sort_values(['review_or_remarks'], inplace=True)
