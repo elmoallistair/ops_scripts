@@ -193,7 +193,8 @@ def process_chat(df_chat, df_keywords, mappings, identifier):
 
     disp = {
         'attribute': 'Dax Attribute',
-        'different_driver': 'Different Driver'
+        'different_driver': 'Different Driver',
+        'parking' : 'DAX asking for tips & parking fee improperly'
     }
     
     df_chat = order_column_by_template(df_chat, cols_order[identifier])
