@@ -3,6 +3,8 @@ import unicodedata
 import numpy as np
 import pandas as pd
 import datetime as dt
+import google_connect as pconnect
+import presto_connect as pconnect
 
 def get_n_last_date_range(n):
     today_date = dt.date.today()
@@ -127,12 +129,54 @@ def fix_taxi_types(text):
     return text
 
 def get_taxi_type_simple(text):
-    if "::" in text:
-        elements = text.split("::")
-        return elements[0]
+    match = re.search(r'[^: ]+', text)
+    if match:
+        return match.group()
     else:
         return text
 
+def lookup_value_by_reference(df_source, df_reference, source_column, reference_column, key_id):
+    result_df = df_source.copy()
+
+    result_df[source_column] = result_df[source_column].astype(str)
+    df_reference[reference_column] = df_reference[reference_column].astype(str)
+    result_df[key_id] = result_df[key_id].astype(str)
+    df_reference[key_id] = df_reference[key_id].astype(str)
+
+    for index, row in result_df.iterrows():
+        key_value = row[key_id]
+        reference_row = df_reference[df_reference[key_id] == key_value]
+
+        if not reference_row.empty:
+            result_df.at[index, source_column] = reference_row.iloc[0][reference_column]
+
+    return result_df
+
+def retrieve_dax_info(driver_ids):
+    df_queries = gconnect.read_data_from_sheet(client, sheet_config, sheet_name='queries')
+    query_dax_info = df_queries['get_driver_info'][0]
+    query_dax_info = query_dax_info.format(driver_ids=driver_ids)
+    df_driver_infos = pconnect.execute_presto_query(query_dax_info, dec('cqq+`ihj+m`wl|dkqj', 5), dec('Gjojkb75<&', 5))
+    return df_driver_infos
+    
+def append_driver_info(df_tickets, append_col):
+    identifiers = concat_column_values(df_tickets['driver_id'])
+    driver_infos = retrieve_dax_info(driver_ids)
+
+    df_tickets['driver_id'] = df_tickets['driver_id'].astype(int)
+    df_tickets[append_col] = ''
+    df_tickets[append_col] = lookup_value_by_reference(df_tickets, driver_infos, append_col, append_col, 'driver_id')
+
+def append_metadata_to_dataframe(df, metadata):
+    for column, value in metadata.items():
+        if column == 'lambdas':
+            for transformation in value:
+                col_name = transformation['name']
+                function_str = transformation['function']
+                df[col_name] = eval(function_str)
+        else:
+            df[column] = value
+            
 # ========== BAU PROCESSING ==========
 
 def get_treatment_name(vertical, category=None):
