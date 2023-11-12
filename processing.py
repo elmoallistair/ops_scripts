@@ -3,7 +3,7 @@ import unicodedata
 import numpy as np
 import pandas as pd
 import datetime as dt
-import google_connect as pconnect
+import google_connect as gconnect
 import presto_connect as pconnect
 
 def get_n_last_date_range(n):
