@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import google_connect as gconnect
 
 def get_cooldown_data(client, sheet_id, sheet_name, identifier_col, verbose=True):
     df_cooldown = gconnect.read_data_from_sheet(client, sheet_id, sheet_name)
