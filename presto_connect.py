@@ -1,7 +1,7 @@
 import pandas as pd
 from pyhive import presto
 
-def execute_presto_query(query, username, password):
+def execute_presto_query(query, username, password, verbose=True):
     try:
         cursor = presto.connect(host='porta.data-engineering.myteksi.net',
                                 username=f'{username};cloud=aws&mode=adhoc', 
@@ -10,11 +10,14 @@ def execute_presto_query(query, username, password):
         cursor.execute(query)
         data =  pd.DataFrame(cursor.fetchall())
         data.columns = [i[0] for i in cursor.description]
-        print(f'Successfully retrieved {len(data)} rows')
+        
+        if verbose:
+            print(f'[SUCCESS] Retrieved {len(data)} rows from presto')
+    
         return data
 
     except Exception as e:
-        print(f'An error occurred: {str(e)}')
+        print(f'[ERROR] {str(e)}')
         return None
 
 def retrieve_chat_data(base_query, df_keywords, date_start, date_end, username, password):
