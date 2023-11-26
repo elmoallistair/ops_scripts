@@ -1,6 +1,30 @@
 import numpy as np
 import pandas as pd
 
+def get_cooldown_data(client, sheet_id, sheet_name, identifier_col, verbose=True):
+    df_cooldown = gconnect.read_data_from_sheet(client, sheet_id, sheet_name)
+    act_date = df_cooldown['action_date'].max()
+    cooldowns = df_cooldown[df_cooldown['action_date'] == act_date]
+    cooldowns = set(cooldowns[identifier_col])
+
+    if verbose:
+        print(f"[INFO] Retrieved {len(cooldowns)} dax in cooldown from {act_date} period")
+
+    return cooldowns
+
+def check_cooldown(df_tickets, cooldowns, identifier_col, remove=False):
+    df_tickets['cooldown'] = False
+    cooldown_ids = set(cooldowns)
+    df_tickets.loc[df_tickets[identifier_col].isin(cooldown_ids), 'cooldown'] = True
+
+    if remove:
+        rows_removed = df_tickets[df_tickets['cooldown'] == True]
+        rows_removed = set(rows_removed[identifier_col])
+        df_tickets = df_tickets[df_tickets['cooldown'] == False]
+        print(f'[INFO] Removed {len(rows_removed)} dax on cooldown period')
+
+    return df_tickets
+
 def check_processed_tickets(df_tickets_raw, df_record, right_id, left_id, keep=False):
     df_tickets = df_tickets_raw.copy()
     processed_tickets = set(df_record[left_id].unique())
