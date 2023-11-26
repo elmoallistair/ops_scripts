@@ -6,6 +6,25 @@ import numpy as np
 import pandas as pd
 from flashtext import KeywordProcessor
 
+def correct_prediction_label(label, lookup_df, lookup_column='transform', result_column='origin'):
+    """
+    Corrects or re-mapping the prediction label using a lookup DataFrame.
+
+    Args:
+    - label (str): The label to be corrected.
+    - lookup_df (pd.DataFrame): The DataFrame used for label correction.
+    - lookup_column (str, optional): The column in the lookup DataFrame used for matching labels. Default is 'transform'.
+    - result_column (str, optional): The column in the lookup DataFrame that contains the corrected labels. Default is 'origin'.
+
+    Returns:
+      The corrected label if a match is found in the lookup DataFrame, otherwise returns the original label.
+    """
+    match = lookup_df[lookup_df[lookup_column] == label]
+    if not match.empty:
+        return match.iloc[0][result_column]
+    else:
+        return label
+
 def get_prediction_with_model(df_review, model, vectorizer, col_name):
     """
     Predict the class and confidence score for each row in a DataFrame.
