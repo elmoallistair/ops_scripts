@@ -57,7 +57,7 @@ def process_chat(df_chat_raw, mappings, metadata):
     df_chat = processing.order_column_by_template(df_chat, cols_order['coc'])
 
     df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: processing.text_preprocessing(x))
-    df_chat = df_chat[~df_chat['review_or_remarks'].str.endswith('?')]
+    df_chat = df_chat[~df_chat['review_or_remarks'].str.strip().str.endswith('?')]
     df_chat = postprocess_tickets(df_chat)
 
     return df_chat
