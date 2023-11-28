@@ -131,7 +131,7 @@ def process_dsd_det(df_dsd_raw, mappings, metadata, cooldowns, thresholds):
     df_dsd = processing.apply_metadata_to_dataframe(df_dsd, metadata)
     df_dsd = striking.check_cooldown(df_dsd, cooldowns, 'identifier', remove=True)
     df_dsd = postprocess_tickets(df_dsd, identifier='identifier')
-    df_coc, df_docs = split_tickets(df_dsd, cols_order, 'doc_zen_dsd')
+    df_coc, df_docs = split_tickets(df_dsd, cols_order, 'doc_det_dsd')
 
     return df_coc, df_docs
 
