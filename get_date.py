@@ -46,3 +46,29 @@ def get_last_week_monday():
     today = datetime.now().date()
     last_week_monday = today - timedelta(days=today.weekday() + 7)
     return last_week_monday.strftime('%Y-%m-%d')
+
+def get_weekly_date_range(start_week, end_week, start_day='monday'):
+    current_date = datetime.now()
+    date_ranges = []
+
+    for week_number in range(start_week, end_week + 1):
+        current_start_day = datetime(current_date.year, 1, 1) + timedelta(weeks=week_number - 1)
+        current_start_day -= timedelta(days=current_start_day.weekday() + (start_day == 'sunday'))
+
+        current_end_day = current_start_day + timedelta(days=6)
+        date_ranges.append((current_start_day.strftime('%Y-%m-%d'), current_end_day.strftime('%Y-%m-%d')))
+
+    date_start, date_end = min(date_ranges, key=lambda x: x[0])[0], max(date_ranges, key=lambda x: x[1])[1]
+    
+    return date_start, date_end
+
+def get_monthly_date_range(start_month, end_month):
+    current_date = datetime.now()
+    current_start_day = datetime(current_date.year, start_month, 1)
+    last_day_of_end_month = (datetime(current_date.year, end_month % 12 + 1, 1) - timedelta(days=1)).day
+    current_end_day = datetime(current_date.year, end_month, last_day_of_end_month)
+    
+    date_start = current_start_day.strftime('%Y-%m-%d')
+    date_end = current_end_day.strftime('%Y-%m-%d')
+    
+    return date_start, date_end
