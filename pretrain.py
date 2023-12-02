@@ -39,7 +39,7 @@ def remove_duplicated_sample(df_reviews, prioritize_latest=True):
     df_reviews['join'] = df_reviews['tag_recorded'] + ' ' + df_reviews['review_recorded']
     df_reviews['occurrence'] = df_reviews.groupby('review_recorded')['join'].transform('count')
 
-    df_reviews.sort_values(by='occurrence', ascending=False, inplace=True)
+    df_reviews.sort_values(by=['review_recorded', 'occurrence'], ascending=[True, False], inplace=True)
     df_reviews.drop_duplicates(subset='review_recorded', keep='first', inplace=True)
     df_reviews.reset_index(drop=True, inplace=True)
     
