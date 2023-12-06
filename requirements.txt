@@ -7,3 +7,4 @@ pandas==1.2.4
 scikit-learn==0.24.1
 pyhive==0.7.0
 flashtext==2.7
+scipy==1.11.4
