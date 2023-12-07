@@ -88,7 +88,7 @@ def apply_metadata_to_dataframe(df, metadata):
     return df
 
 def detect_suspicious_pax(df):
-    excluded_predictions = ['Mex Related', 'Product Related', 'Unclear']
+    excluded_predictions = ['mex_related', 'product_related', 'unclear']
     count_mask = ~df['prediction'].isin(excluded_predictions)
 
     df['pax_count'] = df[count_mask].groupby('passenger_id')['passenger_id'].transform('count')
