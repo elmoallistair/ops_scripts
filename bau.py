@@ -46,18 +46,20 @@ def process_pax_rating(df_prt_raw, model, feature, metadata, mappings):
 
     return df_prt
 
-def process_chat(df_chat_raw, mappings, metadata):
+def process_chat(df_chat_raw, mappings, metadata, string_param=[]):
     cols_order, cols_rename = mappings.values()
+    min_word, min_letter = string_param
 
     df_chat = df_chat_raw.copy()
     df_chat = processing.rename_columns_with_template(df_chat, cols_rename)
     df_chat = processing.validate_tickets(df_chat)
     df_chat = processing.apply_metadata_to_dataframe(df_chat, metadata)
-    df_chat = processing.remove_short_reviews(df_chat, column_name='review_or_remarks', min_word_count=3)
+    df_chat = processing.remove_short_reviews(df_chat, column_name='review_or_remarks', 
+                                              min_word=min_word, min_letter=min_letter)
     df_chat = processing.order_column_by_template(df_chat, cols_order['coc'])
 
     df_chat['review_or_remarks'] = df_chat['review_or_remarks'].apply(lambda x: processing.text_preprocessing(x))
-    df_chat = df_chat[~df_chat['review_or_remarks'].str.strip().str.endswith('?')]
+    df_chat = df_chat[~df_chat['review_or_remarks'].str.endswith('?')]
     df_chat = postprocess_tickets(df_chat)
 
     return df_chat
