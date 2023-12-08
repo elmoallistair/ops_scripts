@@ -50,11 +50,11 @@ def order_column_by_template(dataframe, cols_lst):
 
     return dataframe_temp
 
-def remove_short_reviews(df_reviews, column_name, min_word_count=2, min_letter_length=10):
+def remove_short_reviews(df_reviews, column_name, min_word=2, min_letter=5):
     df_reviews['word_count'] = df_reviews[column_name].str.split().apply(len)
     df_reviews['letter_length'] = df_reviews[column_name].str.len()
 
-    df_reviews_clean = df_reviews[(df_reviews['word_count'] >= min_word_count) & (df_reviews['letter_length'] >= min_letter_length)].copy()
+    df_reviews_clean = df_reviews[(df_reviews['word_count'] >= min_word) & (df_reviews['letter_length'] >= min_letter)].copy()
     df_reviews_clean.dropna(subset=[column_name], inplace=True)
     df_reviews_clean.drop(columns=['word_count', 'letter_length'], inplace=True)
 
