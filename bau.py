@@ -40,7 +40,7 @@ def process_pax_rating(df_prt_raw, model, feature, metadata, mappings):
 
     df_prt = processing.apply_metadata_to_dataframe(df_prt, metadata)
     df_prt = processing.detect_suspicious_pax(df_prt)
-    df_prt = processing.remove_short_reviews(df_prt, column_name="review_or_remarks", min_word_count=2)
+    df_prt = processing.remove_short_reviews(df_prt, column_name="review_or_remarks", min_word=2, min_letter=10)
     df_prt = processing.order_column_by_template(df_prt, cols_order['prt'])
     df_prt = postprocess_tickets(df_prt, sort_by=['date_local', 'prediction', 'conf_score'])
 
