@@ -1,8 +1,8 @@
 import os
 import gspread
 import pandas as pd
-from datetime import datetime
 from typing import Union, List, Optional
+from datetime import datetime, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -171,3 +171,83 @@ def append_dataframe_to_sheet(client: gspread.client.Client, df_to_append: pd.Da
     # Write the combined DataFrame to the sheet
     write_dataframe_to_sheet(client, df_combined, sheet_id, sheet_name, verbose=False)
 
+def copy_file_to_drive(client: gspread.Client, from_source: str, file_source: str, folder_id_dest: str, filename: str, if_exist: str = 'skip') -> str:
+    """
+    Copy a file from a local or Google Drive file to another Google Drive folder.
+
+    Args:
+        client (gspread.client.Client): An authenticated gspread client.
+        from_source (str): The source of the file to be copied. 
+            - 'local': Copying local file to drive folder.
+            - 'drive': Copying drive file to drive folder.
+        file_source (str): 
+            - The path of local file if source is from 'local'.
+            - The file ID if source is from 'drive'.
+        folder_id_dest (str): The ID of the destination drive folder.
+        filename (str): The desired filename for the copied file in the destination folder.
+        if_exist (str, optional): The action to take if the file already exists in the destination folder.
+            - 'override': Replace the existing file with the copied file.
+            - 'skip': Skip the copying process and do nothing. Default is 'skip'.
+            - 'duplicate': Create a duplicate file with a unique name.
+
+    Returns:
+        str: The ID of the copied file.
+    """
+        
+    drive_service = build('drive', 'v3', credentials=client.auth)
+
+    # Get the destination folder details
+    folder_metadata = drive_service.files().get(fileId=folder_id_dest, fields='name').execute()
+    folder_name = folder_metadata['name']
+
+    # Prepare new file metadata
+    new_file_metadata = {
+        'name': filename,
+        'parents': [folder_id_dest],
+    }
+
+    # Check if a file with the same name already exists in the destination folder
+    existing_files = (
+        drive_service.files()
+        .list(q=f'name="{filename}" and "{folder_id_dest}" in parents')
+        .execute()
+    )
+
+    if existing_files.get('files'):
+        existing_file_id = existing_files['files'][0]['id']
+
+        if if_exist == 'override':
+            # Replace the existing file
+            drive_service.files().delete(fileId=existing_file_id).execute()
+            print(f'[WARNING] File "{filename}" already exists and is being replaced.')
+        elif if_exist == 'skip':
+            # Don't copy the file and skip the process
+            print(f'[WARNING] File "{filename}" already exists, process skipped.')
+            return None
+        elif if_exist == 'duplicate':
+            # Create a duplicate file with a unique name
+            base_name, extension = os.path.splitext(filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            duplicate_name = f"{base_name}_{timestamp}{extension}"
+            new_file_metadata['name'] = duplicate_name
+            print(f'[WARNING] File "{filename}" already exists, creating a duplicate file: "{duplicate_name}"')
+
+    # Copy the file based on its source
+    if from_source == 'drive':
+        copied_file = drive_service.files().copy(fileId=file_source, body=new_file_metadata).execute()
+        filename_origin = drive_service.files().get(fileId=copied_file['id'], fields='name').execute()['name']
+        print(f'[INFO] File "{filename_origin}" copied with filename "{filename}"')
+    elif from_source == 'local':
+        # Verify that the local file exists
+        if not os.path.exists(file_source):
+            raise FileNotFoundError(f'[REJECTED] File "{file_source}" not found.')
+
+        # Upload the file to Google Drive
+        copied_file = (
+            drive_service.files()
+            .create(body=new_file_metadata, media_body=file_source, fields='id')
+            .execute()
+        )
+        print(f'[INFO] File "{filename}" successfully copied to folder: "{folder_name}"')
+
+    return copied_file['id']
