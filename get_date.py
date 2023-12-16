@@ -19,16 +19,14 @@ def get_last_week_date_range(start_day="monday"):
 def get_n_last_date_range(n):
     today_date = datetime.today()
     date_format = "%Y-%m-%d"
+    date_end = today_date.strftime(date_format)
     
     if n == 0:
-        date_start = date_end = today_date.strftime(date_format)
+        date_start = date_end
     elif n == 1:
-        yesterday_date = today_date - datetime.timedelta(days=1)
-        date_start = yesterday_date.strftime(date_format)
-        date_end = today_date.strftime(date_format)
+        date_start = (today_date - timedelta(days=1)).strftime(date_format)
     else: 
         date_start = (today_date - timedelta(days=n)).strftime(date_format)
-        date_end = today_date.strftime(date_format)
 
     return date_start, date_end
 
