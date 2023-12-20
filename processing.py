@@ -4,25 +4,24 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
-def text_preprocessing(text, keep_punctuations=True):
-    text = text.lower().strip()
-    text = re.sub(r'\s+', ' ', text)
-    text = ''.join(char for char in text if unicodedata.category(char)[0] != 'S')
-    text = re.sub(r'\s*([.,?!])\s*', r'\1 ', text)
-    text = text.replace('\n', '. ')
+def create_identifier(df, columns, separator=', '):
+    df['identifier'] = df[columns].astype(str).apply(separator.join, axis=1)
+    return df
 
-    if not keep_punctuations:
-        text = re.sub(r'[^\w\s]', '', text)
+def lookup_by_reference(df_tickets, df_reference, reference_col, match_col):
+    reference_dict = df_reference.set_index(match_col)[reference_col].to_dict()
+    df_tickets[reference_col] = df_tickets[match_col].map(reference_dict)
+    return df_tickets
 
-    return text
+def text_preprocessing(df, column_target='review_or_remarks', keep_punctuations=True):
+    def preprocess_text(text):
+        text = re.sub(r'\s+', ' ', str(text).lower().strip())
+        text = ''.join(char for char in text if unicodedata.category(char)[0] != 'S')
+        text = re.sub(r'\s*([.,?!])\s*', r'\1 ', text.replace('\n', '. '))
+        return re.sub(r'[^\w\s]', '', text) if not keep_punctuations else text
 
-def lookup_by_reference(df_tickets, df_reference, reference_col):
-    merged_df = df_tickets.merge(df_reference[['driver_id', reference_col]], on='driver_id', how='left', suffixes=('_tickets', '_reference'))
-    merged_df[reference_col + '_tickets'].fillna(merged_df[reference_col + '_reference'], inplace=True)
-    merged_df.rename(columns={reference_col + '_tickets': reference_col}, inplace=True)
-    merged_df.drop(reference_col + '_reference', axis=1, inplace=True)
-
-    return merged_df
+    df[column_target] = df[column_target].astype(str).apply(preprocess_text)
+    return df
 
 def rename_columns_with_template(df, df_rename):
     renamed_columns = []
@@ -39,30 +38,22 @@ def rename_columns_with_template(df, df_rename):
     return df
 
 def order_column_by_template(dataframe, cols_lst):
-    template = pd.Series(cols_lst)[pd.Series(cols_lst) != ''].dropna()
-    dataframe_temp = pd.DataFrame(columns=template)
+    template = [col for col in cols_lst if col != '']
+    dataframe = dataframe.reindex(columns=template)
+    return dataframe
 
-    for col in template:
-        if col in dataframe.columns:
-            dataframe_temp[col] = dataframe[col]
-        else:
-            dataframe_temp[col] = np.nan
+def remove_short_reviews(df_reviews, column_name='review_or_remarks', min_word=2, min_letter=5):
+    df_reviews = df_reviews[df_reviews[column_name].str.split().str.len() >= min_word]
+    df_reviews = df_reviews[df_reviews[column_name].str.len() >= min_letter]
+    df_reviews.dropna(subset=[column_name], inplace=True)
 
-    return dataframe_temp
-
-def remove_short_reviews(df_reviews, column_name, min_word=2, min_letter=5):
-    df_reviews['word_count'] = df_reviews[column_name].str.split().apply(len)
-    df_reviews['letter_length'] = df_reviews[column_name].str.len()
-
-    df_reviews_clean = df_reviews[(df_reviews['word_count'] >= min_word) & (df_reviews['letter_length'] >= min_letter)].copy()
-    df_reviews_clean.dropna(subset=[column_name], inplace=True)
-    df_reviews_clean.drop(columns=['word_count', 'letter_length'], inplace=True)
-
-    removed_count = len(df_reviews) - len(df_reviews_clean)
+    removed_count = len(df_reviews) - len(df_reviews)
     if removed_count > 0:
         print(f'[INFO] Removed {removed_count} short reviews from dataset')
 
-    return df_reviews_clean
+    df_reviews = df_reviews.reset_index(drop=True)
+
+    return df_reviews
 
 def create_booking_metadata(row):
     metadata = {
@@ -94,7 +85,7 @@ def detect_suspicious_pax(df):
     df['pax_count'] = df[count_mask].groupby('passenger_id')['passenger_id'].transform('count')
     df['identifier_count'] = df[count_mask].groupby('identifier')['identifier'].transform('count')
 
-    suspicious_condition = (df['pax_count'] > 2) | (df['identifier_count'] > 1)
+    suspicious_condition = (df['pax_count'] > 3) | (df['identifier_count'] > 1)
     df.loc[suspicious_condition, 'prediction'] = 'Suspicious'
 
     return df
@@ -103,12 +94,13 @@ def get_wheel_count(row):
     fleet_name = row['fleet_name'].lower()
     return '4W' if fleet_name.startswith(('uni', 'tpi', 'gc')) else '2W'
         
-def fix_taxi_types(text):
-    text = text.replace("__", "::")
-    text = text.replace("_", "")
-    text = re.sub(r'\bgrab', 'Grab', text)
-    text = re.sub(r'(Grab|::)([a-z])', lambda x: x.group(1) + x.group(2).upper(), text)
-    return text
+def fix_taxi_type(df, col_name='taxi_type'):
+    df[col_name] = df[col_name].str.replace('__', '::')
+    df[col_name] = df[col_name].str.replace('_', '')
+    df[col_name] = df[col_name].str.replace(r'\bgrab', 'Grab', regex=True)
+    df[col_name] = df[col_name].str.replace(r'(Grab|::)([a-z])', lambda x: x.group(1) + x.group(2).upper(), regex=True)
+    
+    return df
 
 def get_taxi_type_simple(text):
     match = re.search(r'[^: ]+', text)
