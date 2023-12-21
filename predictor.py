@@ -25,7 +25,7 @@ def correct_prediction_label(label, lookup_df, lookup_column='transform', result
     else:
         return label
 
-def get_prediction_with_model(df_review, model, vectorizer, col_name):
+def get_prediction_with_model(df_review, model, vectorizer, col_target='review_or_remarks'):
     """
     Predict the class and confidence score for each row in a DataFrame.
 
@@ -33,21 +33,21 @@ def get_prediction_with_model(df_review, model, vectorizer, col_name):
     - df_review (pd.DataFrame): The DataFrame containing the text data.
     - model: The trained machine learning model for prediction.
     - vectorizer: The text vectorizer (e.g., CountVectorizer or TF-IDFVectorizer).
-    - col_feature (str): The name of the column in the DataFrame that contains the text data.
+    - col_target (str): The name of the column in the DataFrame that contains the text data.
 
     Returns:
       A tuple of two NumPy arrays, 
       where the first array contains the predicted tags and the second array contains the confidence scores.
     """
 
-    X = vectorizer.transform(df_review[col_name])
+    X = vectorizer.transform(df_review[col_target])
     predictions = model.predict(X)
     confidences = model.predict_proba(X).max(axis=1)
     confidences = [round(conf, 2) for conf in confidences]
 
     return predictions, confidences
 
-def get_prediction_with_keywords(df_review, df_keywords, col_target, transform=False):
+def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_remarks', transform=False):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
@@ -98,7 +98,7 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target, transform=F
 
     return matched_labels
 
-def get_prediction_with_record(df_review, df_record, col_name, min_occurrence=2):
+def get_prediction_with_record(df_review, df_record, col_target='review_or_remarks', min_occurrence=2):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
@@ -113,7 +113,7 @@ def get_prediction_with_record(df_review, df_record, col_name, min_occurrence=2)
       where the first array contains the predicted tags and the second array contains the confidence scores.
     """
 
-    df_review[col_name] = df_review[col_name].str.lower()
+    df_review[col_name] = df_review[col_target].str.lower()
     df_record['occurrence'] = df_record['occurrence'].astype(int)
     df_record = df_record[df_record['occurrence'] >= min_occurrence]
 
