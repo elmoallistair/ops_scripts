@@ -44,16 +44,16 @@ def process_chat(df_chat, config):
 def process_zendesk(df_zendesk, config):
     df_zendesk = processing.rename_columns_with_template(df_zendesk, config['cols_rename'])
     df_zendesk = processing.fix_taxi_type(df_zendesk)
-    df_zendesk = processing.validate_tickets(df_zendesk)
+    df_zendesk = processing.validate_tickets(df_zendesk, drop=True)
     df_zendesk = processing.apply_metadata_to_dataframe(df_zendesk, config['metadata'])
     df_zendesk = processing.order_column_by_template(df_zendesk, config['cols_order'])
-
+    
     return df_zendesk
 
 def process_drm(df_drm, config):
     df_drm = df_drm[df_drm['mex_open_rule'] == 'True']
     df_drm = processing.rename_columns_with_template(df_drm, config['cols_rename'])
-    df_drm = processing.validate_tickets(df_drm)
+    df_drm = processing.validate_tickets(df_drm, drop=True)
     df_drm = processing.apply_metadata_to_dataframe(df_drm, config['metadata'])
     df_drm = striking.check_cooldown(df_drm, config['cooldown'])
     df_coc, df_docs = split_tickets(df_drm, config['coc_order'], config['docs_order'])
@@ -63,7 +63,7 @@ def process_drm(df_drm, config):
 def process_dunc(df_dunc, config):
     df_dunc = processing.rename_columns_with_template(df_dunc, config['cols_rename'])
     df_dunc = processing.fix_taxi_type(df_dunc)
-    df_dunc = processing.validate_tickets(df_dunc)
+    df_dunc = processing.validate_tickets(df_dunc, drop=True)
     df_dunc = processing.apply_metadata_to_dataframe(df_dunc, config['metadata'])
     df_dunc = striking.check_cooldown(df_dunc, config['cooldown'])
     df_coc, df_docs = split_tickets(df_dunc, config['coc_order'], config['docs_order'])
@@ -73,7 +73,7 @@ def process_dunc(df_dunc, config):
 def process_dsd_det(df_dsd, config):
     df_dsd = df_dsd.copy().iloc[:,:26].replace({'NaN':1, 'TRUE': 1, 'FALSE': 0})
     df_dsd = processing.rename_columns_with_template(df_dsd, config['cols_rename'])
-    df_dsd = processing.validate_tickets(df_dsd)
+    df_dsd = processing.validate_tickets(df_dsd, drop=True)
 
     # Filter rows based on conditions
     df_dsd = df_dsd[
@@ -120,7 +120,7 @@ def process_dsd_det(df_dsd, config):
 
 def process_dsd_zen(df_dsd, config):
     df_dsd = processing.rename_columns_with_template(df_dsd, config['cols_rename'])
-    df_dsd = processing.validate_tickets(df_dsd)
+    df_dsd = processing.validate_tickets(df_dsd, drop=True)
     df_dsd = processing.fix_taxi_type(df_dsd)
     df_dsd = processing.apply_metadata_to_dataframe(df_dsd, config['metadata'])
     df_dsd = striking.check_cooldown(df_dsd, config['cooldown'])
@@ -139,7 +139,7 @@ def process_dipc(df_dipc, config):
     
     df_dipc = processing.rename_columns_with_template(df_dipc, config['cols_rename'])
     df_dipc = processing.fix_taxi_type(df_dipc)
-    df_dipc = processing.validate_tickets(df_dipc)
+    df_dipc = processing.validate_tickets(df_dipc, drop=True)
     df_dipc = processing.apply_metadata_to_dataframe(df_dipc, config['metadata'])
     df_dipc = apply_threshold(df_dipc)
     df_dipc = striking.check_cooldown(df_dipc, config['cooldown'])
