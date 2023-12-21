@@ -120,48 +120,48 @@ def concat_column_values(series):
 
     return result
 
-def validate_tickets(df_tickets, territories=None, verticals=None, drop=False):
+def validate_tickets(df_tickets, territories=None, verticals=None, drop=False, reject=False):
     def is_valid_booking_code(code):
         valid_prefixes = ['A-', 'IN-', 'SD-', 'MS-']
-        valid_chars = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")
+        valid_chars = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-')
         return any(code.startswith(prefix) for prefix in valid_prefixes) and all(c in valid_chars for c in code)
 
-    invalid_values = ['#N/A', '#REF!', '#ERROR!', '#NAME?', '#N/A']
-    df_tickets = df_tickets.replace(invalid_values, float('nan'))
-
+    flag = False
+    invalid_values = ['#N/A', 'NaN', '#REF!', '#ERROR!', '#NAME?', '#N/A']
+    df_tickets = df_tickets.replace(invalid_values, np.nan)
+    #df_tickets = df_tickets.dropna()
+    
     # Validate driver_id
     non_numeric_driver_ids = df_tickets[df_tickets['driver_id'].astype(str).str.contains(r'\D', na=False)]
     df_tickets['driver_id'] = pd.to_numeric(df_tickets['driver_id'], errors='coerce')
     invalid_driver_ids = df_tickets[(df_tickets['driver_id'] < 50000) | (df_tickets['driver_id'] > 100000000)]
     invalid_driver_ids = pd.concat([invalid_driver_ids, non_numeric_driver_ids])
-
+    
     if len(invalid_driver_ids) > 0:
         if drop:
             df_tickets = df_tickets.drop(invalid_driver_ids.index)
-            print(f'[REJECTED] {len(invalid_driver_ids)} ticket(s) has invalid driver_id', end=': ')
-        else:
-            print(f'[WARNING] {len(invalid_driver_ids)} ticket(s) has invalid driver_id', end=': ')
-        print(invalid_driver_ids['driver_id'].values)
+            flag = True
+
+        print(f'[WARNING] {len(invalid_driver_ids)} ticket(s) has invalid driver_id')
 
     # Validate booking_code
     invalid_booking_codes = df_tickets[~df_tickets['booking_code'].apply(is_valid_booking_code)]
     if len(invalid_booking_codes) > 0:
         if drop:
             df_tickets = df_tickets.drop(invalid_booking_codes.index)
-            print(f'[REJECTED] {len(invalid_booking_codes)} ticket(s) has invalid booking_code', end=': ')
-        else:
-            print(f'[WARNING] {len(invalid_booking_codes)} ticket(s) has invalid booking_code', end=': ')
-        print(invalid_booking_codes['booking_code'].values)
+            flag = True
+        
+        print(f'[WAR] {len(invalid_booking_codes)} ticket(s) has invalid booking_code')
 
     # Validate territories
     if territories is not None:
         unlisted_territories = df_tickets[~df_tickets['territory'].isin(territories)]
         if len(unlisted_territories) > 0:
             if drop:
-                print(f'[REJECTED] {len(unlisted_territories)} ticket(s) has unlisted city_name', end=': ')
-            else:
-                print(f'[WARNING] {len(unlisted_territories)} ticket(s) has unlisted city_name', end=': ')
-            print(unlisted_territories['territory'].values)
+                df_tickets = df_tickets[df_tickets['territory'].isin(territories)]
+                flag = True
+            
+            print(f'[WARNING] {len(unlisted_territories)} ticket(s) has unlisted territory')
 
     # Validate vertical
     if verticals is not None:
@@ -169,12 +169,16 @@ def validate_tickets(df_tickets, territories=None, verticals=None, drop=False):
         if len(unlisted_verticals) > 0:
             if drop:
                 df_tickets = df_tickets[df_tickets['vertical'].isin(verticals)]
-                print(f'[REJECTED] {len(unlisted_verticals)} ticket(s) has unlisted vertical', end=': ')
-            else:
-                print(f'[WARNING] {len(unlisted_verticals)} ticket(s) has unlisted vertical', end=': ')
+                flag = True
+        
+            print(f'[WARNING] {len(unlisted_verticals)} ticket(s) has unlisted vertical')
             print(unlisted_verticals['vertical'].values)
 
     # Reset index
     df_tickets = df_tickets.reset_index(drop=True)
+
+    if reject and flag:
+        print('[REJECTED] Please fix the issues above')
+        return None
 
     return df_tickets
