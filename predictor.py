@@ -47,6 +47,8 @@ def check_repetitive_dax(df_tickets, identifier, dax_threshold=3, id_threshold=2
     identifier_counts = df_tickets['identifier'].value_counts()
     df_tickets.loc[df_tickets['identifier'].map(lambda x: identifier_counts[x] >= id_threshold), 'check'] = 'Done'
 
+    df_tickets['check'] = df_tickets['check'].fillna('')
+
     return df_tickets
 
 def get_prediction_with_model(df_review, model, vectorizer, col_target='review_or_remarks'):
