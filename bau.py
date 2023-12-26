@@ -13,39 +13,48 @@ def split_tickets(df_tickets, cols_order_coc, cols_order_docs):
 
     return df_tickets_coc, df_tickets_docs
 
+def preprocess_tickets(df_tickets, config):
+    df_tickets = processing.rename_columns_with_template(df_tickets, config['cols_rename'])
+    df_tickets = processing.validate_tickets(df_tickets, drop=True)
+    df_tickets = processing.fix_taxi_type(df_tickets)
+    df_tickets = processing.fix_city_name(df_tickets)
+    
+    df_tickets['review_source'] = config['source']
+    df_tickets = df_tickets.drop_duplicates(subset='booking_code')
+    df_tickets = df_tickets.reset_index(drop=True)
+    
+    return df_tickets
+
 def process_pax_rating(df_prt, config):
-    df_prt = processing.rename_columns_with_template(df_prt, config['cols_rename'])
+    df_prt = preprocess_tickets(df_prt, config)
     df_prt = processing.text_preprocessing(df_prt, keep_punctuations=False)
 
     pred, conf = predictor.get_prediction_with_model(df_prt, config['model'], config['feature'])
     df_prt['prediction'] = pred
     df_prt['conf_score'] = conf
-    df_prt['review_source'] = 'Comments'
-    df_prt['booking_meta'] = df_prt.apply(processing.create_booking_metadata, axis=1)
 
     df_prt = custom_logic.custom_prt_prediction_validator(df_prt)
+    df_prt = processing.create_booking_metadata(df_prt)
     df_prt = processing.create_identifier(df_prt, ['passenger_id', 'review_or_remarks'])
     df_prt = processing.detect_suspicious_pax(df_prt)
     df_prt = processing.remove_short_reviews(df_prt)
+    df_prt = processing.lookup_by_reference(df_prt, config['pred_rename'], 'sub_disposition', 'prediction')
     df_prt = processing.order_column_by_template(df_prt, config['cols_order'])
 
     return df_prt
 
 def process_chat(df_chat, config):
-    df_chat = processing.rename_columns_with_template(df_chat, config['cols_rename'])
-    df_chat = processing.validate_tickets(df_chat)
-    df_chat = processing.apply_metadata_to_dataframe(df_chat, config['metadata'])
+    df_chat = preprocess_tickets(df_chat, config)
+    df_chat = processing.text_preprocessing(df_chat, keep_punctuations=False)
     df_chat = processing.remove_short_reviews(df_chat, min_word=config['min_word'], min_letter=config['min_letter'])
     df_chat = processing.order_column_by_template(df_chat, config['cols_order'])
-    df_chat = processing.text_preprocessing(df_chat, 'review_or_remarks', keep_punctuations=False)
-
+    df_chat = predictor.check_repetitive_dax(df_chat, identifier=['driver_id', 'review_or_remarks'])
+    
     return df_chat
 
 def process_zendesk(df_zendesk, config):
-    df_zendesk = processing.rename_columns_with_template(df_zendesk, config['cols_rename'])
-    df_zendesk = processing.fix_taxi_type(df_zendesk)
-    df_zendesk = processing.validate_tickets(df_zendesk, drop=True)
-    df_zendesk = processing.apply_metadata_to_dataframe(df_zendesk, config['metadata'])
+    df_zendesk = preprocess_tickets(df_zendesk, config)
+    df_zendesk = processing.append_zendesk_ticket_id(df_zendesk)
     df_zendesk = processing.order_column_by_template(df_zendesk, config['cols_order'])
     
     return df_zendesk
