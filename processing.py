@@ -102,6 +102,12 @@ def fix_taxi_type(df, col_name='taxi_type'):
     
     return df
 
+def fix_city_name(df, col_name='city_name'):
+    """Converts 'country__area__city' format to 'city' only"""
+    df[col_name] = df[col_name].apply(lambda x: x.split('__')[-1].capitalize())
+    
+    return df
+    
 def get_taxi_type_simple(text):
     match = re.search(r'[^: ]+', text)
     if match:
