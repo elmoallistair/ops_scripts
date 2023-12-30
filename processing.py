@@ -131,6 +131,11 @@ def concat_column_values(series):
 
     return result
 
+def append_zendesk_ticket_id(df_tickets, col_target='review_or_remarks', col_id='ticket_id'):
+    df_tickets[col_target] = 'Zendesk Ticket ID ' + df_tickets[col_id].astype(str)
+    
+    return df_tickets
+    
 def validate_tickets(df_tickets, territories=None, verticals=None, drop=False, reject=False):
     def is_valid_booking_code(code):
         valid_prefixes = ['A-', 'IN-', 'SD-', 'MS-']
@@ -140,7 +145,6 @@ def validate_tickets(df_tickets, territories=None, verticals=None, drop=False, r
     flag = False
     invalid_values = ['#N/A', 'NaN', '#REF!', '#ERROR!', '#NAME?', '#N/A']
     df_tickets = df_tickets.replace(invalid_values, np.nan)
-    #df_tickets = df_tickets.dropna()
     
     # Validate driver_id
     non_numeric_driver_ids = df_tickets[df_tickets['driver_id'].astype(str).str.contains(r'\D', na=False)]
@@ -162,7 +166,7 @@ def validate_tickets(df_tickets, territories=None, verticals=None, drop=False, r
             df_tickets = df_tickets.drop(invalid_booking_codes.index)
             flag = True
         
-        print(f'[WAR] {len(invalid_booking_codes)} ticket(s) has invalid booking_code')
+        print(f'[WARNING] {len(invalid_booking_codes)} ticket(s) has invalid booking_code')
 
     # Validate territories
     if territories is not None:
