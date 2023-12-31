@@ -296,3 +296,36 @@ def adhoc_get_models_accuracies(df_preds, cols_pred_identifier, col_actual_tag):
     accuracy_summary = pd.DataFrame.from_dict(accuracies, orient='index', columns=['accuracy'])
     
     return accuracy_summary
+
+def custom_multi_pred(df):
+    pred_final = []
+    conf_final = []
+
+    for index, row in df.iterrows():
+        pred_model = row['pred_model']
+        pred_record = row['pred_record']
+        pred_keyword = row['pred_keyword']
+
+        conf_model = pd.to_numeric(row['conf_model'], errors='coerce')
+        conf_record = pd.to_numeric(row['conf_record'], errors='coerce')
+
+        # Rule 1: If pred_record is not 'not_found' and conf_record >= 0.95, use pred_record and conf_record
+        if pred_record != 'not_found' and conf_record >= 0.95:
+            pred_final.append(pred_record)
+            conf_final.append(conf_record)
+        else:
+            # Rule 2: If pred_keyword and pred_model are the same, add conf_model with +0.2 (maximum 0.99)
+            if pred_keyword == pred_model:
+                pred_final.append(pred_model)
+                conf_final.append(min(0.99, conf_model + 0.2))
+            else:
+                # Rule 3: If pred_keyword is not 'not_found' and pred_keyword is not same as pred_model, and conf_model is less than 0.4
+                if pred_keyword != 'not_found' and pred_keyword != pred_model and conf_model < 0.4:
+                    pred_final.append(pred_keyword)
+                    conf_final.append(0.8)
+                else:
+                    # Default: Use pred_model and conf_model
+                    pred_final.append(pred_model)
+                    conf_final.append(conf_model)
+
+    return pred_final, conf_final
