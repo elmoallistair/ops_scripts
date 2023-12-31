@@ -25,33 +25,7 @@ def correct_prediction_label(label, lookup_df, lookup_column='transform', result
     else:
         return label
 
-def check_repetitive_dax(df_tickets, identifier, dax_threshold=3, id_threshold=2):
-    """
-    Checks for repetitive Dax/identifiers in tickets, and updates the 'check' column accordingly.
-
-    Args:
-    - df_tickets (pd.DataFrame): The DataFrame containing the tickets data.
-    - identifier (str or list): The column(s) to be used as the identifier(s) for checking repetitiveness.
-    - dax_threshold (int, optional): The minimum count for a driver_id to be considered repetitive. Default is 3.
-    - id_threshold (int, optional): The minimum count for an identifier to be considered repetitive. Default is 2.
-
-    Returns:
-    - df_tickets (pd.DataFrame): The DataFrame with the 'check' column updated based on repetitiveness.
-
-    """
-    df_tickets['identifier'] = df_tickets[identifier].astype(str).apply(lambda x: '_'.join(x), axis=1)
-
-    driver_counts = df_tickets['driver_id'].value_counts()
-    df_tickets.loc[df_tickets['driver_id'].map(lambda x: driver_counts[x] >= dax_threshold), 'check'] = 'Done'
-
-    identifier_counts = df_tickets['identifier'].value_counts()
-    df_tickets.loc[df_tickets['identifier'].map(lambda x: identifier_counts[x] >= id_threshold), 'check'] = 'Done'
-
-    df_tickets['check'] = df_tickets['check'].fillna('')
-
-    return df_tickets
-
-def get_prediction_with_model(df_review, model, vectorizer, col_target='review_or_remarks'):
+def get_prediction_with_model(df_review, model, vectorizer, col_target):
     """
     Predict the class and confidence score for each row in a DataFrame.
 
@@ -59,7 +33,7 @@ def get_prediction_with_model(df_review, model, vectorizer, col_target='review_o
     - df_review (pd.DataFrame): The DataFrame containing the text data.
     - model: The trained machine learning model for prediction.
     - vectorizer: The text vectorizer (e.g., CountVectorizer or TF-IDFVectorizer).
-    - col_target (str): The name of the column in the DataFrame that contains the text data.
+    - col_feature (str): The name of the column in the DataFrame that contains the text data.
 
     Returns:
       A tuple of two NumPy arrays, 
@@ -73,7 +47,7 @@ def get_prediction_with_model(df_review, model, vectorizer, col_target='review_o
 
     return predictions, confidences
 
-def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_remarks', transform=False):
+def get_prediction_with_keywords(df_review, df_keywords, col_target, transform=False):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
@@ -107,7 +81,7 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_r
 
     keywords = df_keywords.melt()
     keywords = keywords[~(keywords.applymap(lambda x: str(x).strip() == '').any(axis=1))]
-    keywords = keywords.dropna(how='all', thresh=1)
+    keywords = keywords.dropna(how='all')
     keywords = keywords[keywords['value'].str.len() > 0].reset_index(drop=True)
     keywords['variable'] = "<!>" + keywords['variable'] + "<!>"
 
@@ -124,14 +98,14 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_r
 
     return matched_labels
 
-def get_prediction_with_record(df_review, df_record, col_target='review_or_remarks', min_occurrence=2):
+def get_prediction_with_record(df_review, df_record, col_target, min_occurrence=2):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
     Args:
       df_review: A dataframe containing new tickets.
       df_record: A dataframe containing compiled processed record.
-      col_name: The name of the column containing the reviews in the df_review dataframe.
+      col_target: The name of the column containing the reviews in the df_review dataframe.
       min_occurrence: Minimum occurrence of review_transform from df_record.
 
     Returns:
@@ -139,32 +113,34 @@ def get_prediction_with_record(df_review, df_record, col_target='review_or_remar
       where the first array contains the predicted tags and the second array contains the confidence scores.
     """
 
-    df_review[col_name] = df_review[col_target].str.lower()
+    df_review[col_target] = df_review[col_target].str.lower()
     df_record['occurrence'] = df_record['occurrence'].astype(int)
     df_record = df_record[df_record['occurrence'] >= min_occurrence]
 
-    merged_df = df_review.merge(df_record, left_on=col_name, right_on='review_recorded', how='left')
-    merged_df['tag_recorded'].fillna(np.nan, inplace=True)
+    merged_df = df_review.merge(df_record, left_on=col_target, right_on='review_recorded', how='left')
+    merged_df['tag_recorded'].fillna('not_found', inplace=True)
     merged_df['occurrence'].fillna(0, inplace=True)
+
     predictions = merged_df['tag_recorded'].to_numpy()
     occurrences = merged_df['occurrence'].to_numpy()
 
     initial_score = 0.8
-    confidences = initial_score + (0.02 * occurrences)
+    confidences = initial_score + (0.01 * occurrences)
     confidences = np.minimum(1.0, confidences)
-    confidences[pd.isna(predictions)] = 0
 
+    not_found_mask = predictions == 'not_found'
+    confidences[not_found_mask] = 0
     confidences = [f"{conf:.2f}" for conf in confidences]
 
     return predictions, confidences
 
-def multi_model_prediction(df_reviews, review_col, task_id, model_path, model_ids):
+def multi_model_prediction(df_reviews, col_target, task_id, model_path, model_ids):
     """
     Predict using multiple machine learning models on text data.
 
     Parameters:
     - df_reviews (DataFrame): A DataFrame containing the text data to be used for predictions.
-    - review_col (str): The name of the column in df_reviews that contains the text data.
+    - col_target (str): The name of the column in df_reviews that contains the text data.
     - task_id (str): A string specifying the task identifier.
     - model_path (str): The directory path where the trained models and vectorizers are stored.
     - model_ids (list of str): A list of model identifiers to indicate which models to use for predictions.
@@ -174,12 +150,12 @@ def multi_model_prediction(df_reviews, review_col, task_id, model_path, model_id
       Each model's predictions are stored in separate columns with names like 'pred_model_id'. 
     """
 
-    df_preds = df_reviews[[review_col]].copy()
+    df_preds = df_reviews[[col_target]].copy()
     for model_id in model_ids:
         print(f'[INFO] Predicting with {model_id}')
         clf = joblib.load(os.path.join(model_path, f'{task_id}_model_latest_{model_id}.joblib'))
         vec = joblib.load(os.path.join(model_path, f'{task_id}_feature_latest_{model_id}.joblib'))
-        pred, conf = get_prediction_with_model(df_preds, clf, vec, review_col)
+        pred, conf = get_prediction_with_model(df_preds, clf, vec, col_target)
         df_preds[f'pred_{model_id}'] = list(zip(pred, conf))
 
     return df_preds
@@ -266,6 +242,69 @@ def get_all_ensemble_prediction(df_preds):
 
     return df_preds
 
+def custom_multi_pred(df_tickets, df_keyword, df_record, classifier, vectorizer, col_target):
+    """
+    Perform custom multi-prediction based on keyword matching, record lookup, and model prediction.
+
+    Parameters:
+        df_tickets (DataFrame): DataFrame containing the ticket data.
+        df_keyword (DataFrame): DataFrame containing the keyword data.
+        df_record (DataFrame): DataFrame containing the record data.
+        classifier: The trained classifier model.
+        vectorizer: The trained vectorizer for text data.
+        col_target (str): The name of the target column.
+
+    Returns:
+        tuple: A tuple containing two lists - pred_final and conf_final.
+            - pred_final: A list of the final predicted values.
+            - conf_final: A list of the corresponding confidence scores.
+    """
+    
+    pred_final = []
+    conf_final = []
+
+    # Keyword Matching
+    df_tickets['pred_keyword'] = get_prediction_with_keywords(df_tickets, df_keyword, col_target)
+
+    # Record Lookup
+    pred_record, conf_record = get_prediction_with_record(df_tickets, df_record, col_target)
+    df_tickets['pred_record'] = pred_record
+    df_tickets['conf_record'] = conf_record
+
+    # Model Prediction
+    pred_model, conf_model = get_prediction_with_model(df_tickets, classifier, vectorizer, col_target)
+    df_tickets['pred_model'] = pred_model
+    df_tickets['conf_model'] = conf_model
+
+    for index, row in df_tickets.iterrows():
+        pred_model = row['pred_model']
+        pred_record = row['pred_record']
+        pred_keyword = row['pred_keyword']
+
+        conf_model = pd.to_numeric(row['conf_model'], errors='coerce')
+        conf_record = pd.to_numeric(row['conf_record'], errors='coerce')
+
+        # Rule 1: If pred_record is not 'not_found' and conf_model is less than 0.7, use pred_record and conf_record
+        if pred_record != 'not_found' and conf_record >= 0.95:
+            pred_final.append(pred_record)
+            conf_final.append(conf_record)
+        else:
+            # Rule 2: If pred_keyword and pred_model are the same, add conf_model with +0.2 (maximum 0.99)
+            if pred_keyword == pred_model:
+                pred_final.append(pred_model)
+                conf_final.append(min(0.99, conf_model + 0.2))
+            else:
+                # Rule 3: If pred_keyword is not 'not_found' and pred_keyword is not same as pred_model, and conf_model is less than 0.4
+                if pred_keyword != 'not_found' and pred_keyword != pred_model and conf_model < 0.4:
+                    pred_final.append(pred_keyword)
+                    conf_final.append(0.8)
+                else:
+                    # Default: Use pred_model and conf_model
+                    pred_final.append(pred_model)
+                    conf_final.append(conf_model)
+
+    return pred_final, conf_final
+
 def adhoc_get_models_accuracies(df_preds, cols_pred_identifier, col_actual_tag):
     """
     Calculate accuracies for multiple model predictions.
@@ -296,36 +335,3 @@ def adhoc_get_models_accuracies(df_preds, cols_pred_identifier, col_actual_tag):
     accuracy_summary = pd.DataFrame.from_dict(accuracies, orient='index', columns=['accuracy'])
     
     return accuracy_summary
-
-def custom_multi_pred(df):
-    pred_final = []
-    conf_final = []
-
-    for index, row in df.iterrows():
-        pred_model = row['pred_model']
-        pred_record = row['pred_record']
-        pred_keyword = row['pred_keyword']
-
-        conf_model = pd.to_numeric(row['conf_model'], errors='coerce')
-        conf_record = pd.to_numeric(row['conf_record'], errors='coerce')
-
-        # Rule 1: If pred_record is not 'not_found' and conf_record >= 0.95, use pred_record and conf_record
-        if pred_record != 'not_found' and conf_record >= 0.95:
-            pred_final.append(pred_record)
-            conf_final.append(conf_record)
-        else:
-            # Rule 2: If pred_keyword and pred_model are the same, add conf_model with +0.2 (maximum 0.99)
-            if pred_keyword == pred_model:
-                pred_final.append(pred_model)
-                conf_final.append(min(0.99, conf_model + 0.2))
-            else:
-                # Rule 3: If pred_keyword is not 'not_found' and pred_keyword is not same as pred_model, and conf_model is less than 0.4
-                if pred_keyword != 'not_found' and pred_keyword != pred_model and conf_model < 0.4:
-                    pred_final.append(pred_keyword)
-                    conf_final.append(0.8)
-                else:
-                    # Default: Use pred_model and conf_model
-                    pred_final.append(pred_model)
-                    conf_final.append(conf_model)
-
-    return pred_final, conf_final
