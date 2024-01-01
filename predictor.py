@@ -25,7 +25,7 @@ def correct_prediction_label(label, lookup_df, lookup_column='transform', result
     else:
         return label
 
-def get_prediction_with_model(df_review, model, vectorizer, col_target):
+def get_prediction_with_model(df_review, model, vectorizer, col_target='review_or_remarks'):
     """
     Predict the class and confidence score for each row in a DataFrame.
 
@@ -47,7 +47,7 @@ def get_prediction_with_model(df_review, model, vectorizer, col_target):
 
     return predictions, confidences
 
-def get_prediction_with_keywords(df_review, df_keywords, col_target, transform=False):
+def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_remarks', transform=False):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
@@ -98,7 +98,7 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target, transform=F
 
     return matched_labels
 
-def get_prediction_with_record(df_review, df_record, col_target, min_occurrence=2):
+def get_prediction_with_record(df_review, df_record, col_target='review_or_remarks', min_occurrence=2):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
