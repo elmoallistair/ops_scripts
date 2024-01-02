@@ -25,6 +25,29 @@ def correct_prediction_label(label, lookup_df, lookup_column='transform', result
     else:
         return label
 
+def check_repetitive_dax(df_tickets, identifier, dax_threshold=3, id_threshold=2):
+    """
+    Checks for repetitive Dax/identifiers in tickets, and updates the 'check' column accordingly.
+    Args:
+    - df_tickets (pd.DataFrame): The DataFrame containing the tickets data.
+    - identifier (str or list): The column(s) to be used as the identifier(s) for checking repetitiveness.
+    - dax_threshold (int, optional): The minimum count for a driver_id to be considered repetitive. Default is 3.
+    - id_threshold (int, optional): The minimum count for an identifier to be considered repetitive. Default is 2.
+    Returns:
+    - df_tickets (pd.DataFrame): The DataFrame with the 'check' column updated based on repetitiveness.
+    """
+    df_tickets['identifier'] = df_tickets[identifier].astype(str).apply(lambda x: '_'.join(x), axis=1)
+
+    driver_counts = df_tickets['driver_id'].value_counts()
+    identifier_counts = df_tickets['identifier'].value_counts()
+    df_tickets.loc[df_tickets['driver_id'].map(lambda x: driver_counts[x] >= dax_threshold), 'check'] = 'Done'
+    df_tickets.loc[df_tickets['identifier'].map(lambda x: identifier_counts[x] >= id_threshold), 'check'] = 'Done'
+
+    df_tickets['check'] = df_tickets['check'].fillna('')
+    df_tickets = df_tickets.drop(columns='identifier')
+    
+    return df_tickets
+
 def get_prediction_with_model(df_review, model, vectorizer, col_target='review_or_remarks'):
     """
     Predict the class and confidence score for each row in a DataFrame.
@@ -242,7 +265,7 @@ def get_all_ensemble_prediction(df_preds):
 
     return df_preds
 
-def custom_multi_pred(df_tickets, df_keyword, df_record, classifier, vectorizer, col_target):
+def custom_multi_pred(df_tickets, df_keyword, df_record, classifier, vectorizer, col_target='review_or_remarks'):
     """
     Perform custom multi-prediction based on keyword matching, record lookup, and model prediction.
 
