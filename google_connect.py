@@ -31,7 +31,7 @@ def authenticate_client(json_key_file_path: str) -> gspread.Client:
     # Authorize a gspread client using the obtained credentials
     client = gspread.authorize(credentials)
     service_account_email = credentials.service_account_email
-    print(f"[SUCCESS] Service account '{service_account_email}' authenticated")
+    print(f"[INFO] Service account '{service_account_email}' successfully authenticated")
 
     return client
 
@@ -64,7 +64,7 @@ def read_data_from_sheet(client: gspread.client.Client, sheet_id: str, sheet_nam
             dataframe = pd.DataFrame(data[1:], columns=data[0]) # Create a DataFrame from the data, excluding the header row
             dataframes.append(dataframe)
         except gspread.exceptions.WorksheetNotFound:
-            print(f"[Warning] Sheet '{name}' does not exist")
+            print(f"[WARNING] Sheet '{name}' does not exist")
 
     if not dataframes:
         return None
@@ -165,11 +165,10 @@ def append_dataframe_to_sheet(client: gspread.client.Client, df_to_append: pd.Da
             # Sort the DataFrame based on the specified column(s)
             df_combined = df_combined.sort_values(by=sort_by, ignore_index=True)
 
+    write_dataframe_to_sheet(client, df_combined, sheet_id, sheet_name, verbose=False)
+
     if verbose:
         print(f'[INFO] Appended {len(df_combined)} rows to sheet "{sheet_name}"')
-
-    # Write the combined DataFrame to the sheet
-    write_dataframe_to_sheet(client, df_combined, sheet_id, sheet_name, verbose=False)
 
 def copy_file_to_drive(client: gspread.Client, from_source: str, file_source: str, folder_id_dest: str, filename: str, if_exist: str = 'skip') -> str:
     """
