@@ -168,7 +168,7 @@ def append_dataframe_to_sheet(client: gspread.client.Client, df_to_append: pd.Da
     write_dataframe_to_sheet(client, df_combined, sheet_id, sheet_name, verbose=False)
 
     if verbose:
-        print(f'[INFO] Appended {len(df_combined)} rows to sheet "{sheet_name}"')
+        print(f'[INFO] Appended {len(df_to_append)} rows to sheet "{sheet_name}"')
 
 def copy_file_to_drive(client: gspread.Client, from_source: str, file_source: str, folder_id_dest: str, filename: str, if_exist: str = 'skip') -> str:
     """
