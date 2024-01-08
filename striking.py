@@ -100,3 +100,14 @@ def append_bookings(df_strike, df_strike_append):
     df_strike['Total Strike'] = df_strike['Current Strike'] + df_strike['Booking Code']
 
     return df_strike
+
+def check_duplicated_identifier(df_ticket, identifier='identifier_strike', reject=True):
+    num_duplicates = df_ticket[identifier].duplicated().sum()
+    
+    if num_duplicates > 0:
+        if reject:
+            print(f'[REJECTED] There are {num_duplicates} duplicates in {identifier}')
+            return False
+        else:
+            print(f'[WARNING] There are {num_duplicates} duplicates in {identifier} - Ignore IF booking-level strike')
+    return True
