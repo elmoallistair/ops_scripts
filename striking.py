@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import processing
 import google_connect as gconnect
 
 def get_cooldown_data(client, sheet_id, sheet_name, identifier_col, verbose=True):
@@ -111,3 +112,69 @@ def check_duplicated_identifier(df_ticket, identifier='identifier_strike', rejec
         else:
             print(f'[WARNING] There are {num_duplicates} duplicates in {identifier} - Ignore IF booking-level strike')
     return True
+
+def create_staging_for_docs(client, df_staging, sheet_engine, worksheet_target, cols_order, allowed_verticals, reject_duplicate=True):
+    if not check_duplicated_identifier(df_staging, reject=reject_duplicate): 
+        return None
+
+    df_staging = processing.order_column_by_template(df_staging, cols_order)
+    df_staging = df_staging[df_staging['driver_id'].replace('', np.nan).notna()]
+    df_staging = df_staging[df_staging.vertical.isin(allowed_verticals)]
+    df_staging = df_staging.sort_values(by=['strike', 'date_local', 'root_cause', 'sub_category'], ascending=True)
+    df_staging['date_local'] = pd.to_datetime(df_staging['date_local'])
+    df_staging['week'] = df_staging['date_local'].dt.isocalendar().week
+    df_staging['month'] = df_staging['date_local'].dt.month
+    df_staging.fillna('0', inplace=True)
+
+    gconnect.write_dataframe_to_sheet(client, df_staging, sheet_engine, worksheet_target, 
+                                      sort_by=['strike', 'root_cause', 'driver_id'])
+
+    return df_staging
+
+def create_staging_for_comms(client, df_staging, sheet_engine, worksheet_target, cols_order, cols_mapping, remove_duplicate=None):
+    df_modified = df_staging.copy()
+
+    mask = ~df_modified['booking_code'].str.startswith('A')
+    df_modified.loc[mask, 'order_id'] = df_modified.loc[mask, 'booking_code']
+    df_modified.loc[mask, 'booking_code'] = ''
+
+    df_modified = df_modified[df_modified['final_treatment'] != 'Sharing Treatment with 2W']
+    df_modified = df_modified[df_modified['treatment'] != 'Hold']
+
+    df_comms = processing.order_column_by_template(df_modified, cols_order)
+    df_comms.loc[df_comms['review_source'] == 'Comments', 'review_or_remarks'] = ''
+    df_comms.sort_values(by=['strike', 'review_source', 'date_local', 'root_cause', 'sub_category', 'category'], inplace=True)
+    df_comms.rename(columns=cols_mapping, inplace=True)
+    df_comms.fillna('', inplace=True)
+
+    gconnect.write_dataframe_to_sheet(client, df_comms, sheet_engine, worksheet_target, remove_duplicate=remove_duplicate, 
+                                      sort_by=['Strikes', 'Root Cause', 'Driver ID'])
+    return df_comms
+
+
+def create_staging_for_cooldown(client, df_staging, sheet_engine, worksheet_target, identifier='identifier_strike'):
+    df_cooldown = processing.order_column_by_template(df_staging, [identifier, 'cooldown', 'action_date'])
+    df_cooldown['cooldown'] = 'Yes'
+        
+    gconnect.write_dataframe_to_sheet(client, df_cooldown, sheet_engine, worksheet_target)
+
+    return df_cooldown
+
+def staging_for_sheet_strikes(client, df_staging, sheet_engine, worksheet_target, cols_order):
+    df_staging = processing.order_column_by_template(df_staging, cols_order)
+    df_staging = df_staging.sort_values(by=['date_local', 'vertical', 'sub_category'])
+    df_staging.rename(columns={'identifier_strike': 'identifier'}, inplace=True)
+
+    gconnect.write_dataframe_to_sheet(client, df_staging, sheet_engine, worksheet_target)
+
+    return df_staging
+
+def create_staging_for_remarks(client, df_staging, sheet_engine, worksheet_target, cols_order):
+    df_staging = df_staging[df_staging['final_treatment'].str.contains('Blacklist|Restrict')]
+    df_staging = df_staging.drop_duplicates(subset=['identifier_strike'])
+    df_staging = processing.order_column_by_template(df_staging, cols_order)
+
+    gconnect.write_dataframe_to_sheet(client, df_staging, sheet_engine, worksheet_target, 
+                                      sort_by=['final_treatment', 'driver_id'])
+
+    return df_staging
