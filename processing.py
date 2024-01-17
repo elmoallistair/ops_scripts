@@ -38,9 +38,11 @@ def rename_columns_with_template(df, df_rename):
     df.columns = renamed_columns
     return df
 
-def order_column_by_template(dataframe, cols_lst):
+def order_column_by_template(dataframe, cols_lst, nan_value=''):
     template = [col for col in cols_lst if col != '']
     dataframe = dataframe.reindex(columns=template)
+    dataframe = dataframe.fillna(nan_value)
+    
     return dataframe
 
 def remove_short_reviews(df_reviews, column_name='review_or_remarks', min_word=2, min_letter=5):
