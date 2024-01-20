@@ -1,5 +1,6 @@
 import os
 import gspread
+import numpy as np
 import pandas as pd
 from typing import Union, List, Optional
 from datetime import datetime, timedelta
@@ -35,8 +36,12 @@ def authenticate_client(json_key_file_path: str) -> gspread.Client:
 
     return client
 
-def read_data_from_sheet(client: gspread.client.Client, sheet_id: str, worksheet_name: Union[str, List[str]], 
-                         verbose: bool = True) -> Optional[pd.DataFrame]:
+def read_data_from_sheet(
+    client: gspread.client.Client, 
+    sheet_id: str, 
+    worksheet_name: Union[str, List[str]], 
+    verbose: bool = False
+) -> Optional[pd.DataFrame]:
     """
     Read data from one or more sheets within a Google Sheets document.
 
@@ -44,25 +49,21 @@ def read_data_from_sheet(client: gspread.client.Client, sheet_id: str, worksheet
         client (gspread.client.Client): An authenticated gspread client.
         sheet_id (str): The ID of the Google Sheets document to read data from.
         worksheet_name (str or list of str): The name(s) of the worksheet(s) within the document to read data from.
-        verbose (bool, optional): If True, print a success message after reading data (default is False).
+        verbose (bool, optional): If True, print a success message after reading data. Defaults to False.
 
     Returns:
         pd.DataFrame or None: A pandas DataFrame containing the concatenated data from the specified worksheet(s) if successful,
         or None if no valid data frames were found.
     """
-
-    # Open the Google Sheets document using the provided sheet_id
     spreadsheet = client.open_by_key(sheet_id)
-
-    if isinstance(worksheet_name, str):
-        worksheet_name = [worksheet_name]
+    worksheet_name = [worksheet_name] if isinstance(worksheet_name, str) else worksheet_name
 
     dataframes = []
     for name in worksheet_name:
         try:
-            worksheet = spreadsheet.worksheet(name) # Get the worksheet by name
-            data = worksheet.get_all_values() # Get all values from the worksheet
-            dataframe = pd.DataFrame(data[1:], columns=data[0]) # Create a DataFrame from the data, excluding the header row
+            worksheet = spreadsheet.worksheet(name)
+            data = worksheet.get_all_values()
+            dataframe = pd.DataFrame(data[1:], columns=data[0])
             dataframes.append(dataframe)
         except gspread.exceptions.WorksheetNotFound:
             print(f"[WARNING] Sheet '{name}' does not exist")
@@ -70,93 +71,98 @@ def read_data_from_sheet(client: gspread.client.Client, sheet_id: str, worksheet
     if not dataframes:
         return None
 
-    # Concatenate the dataframes vertically
     dataframe = pd.concat(dataframes, axis=0, ignore_index=True)
 
     if verbose:
-        worksheet_names = worksheet_name if isinstance(worksheet_name, str) else ', '.join(worksheet_name)
+        worksheet_names = ', '.join(worksheet_name)
         print(f'[INFO] Retrieved {len(dataframe)} rows from sheet "{worksheet_names}"')
 
     return dataframe
 
-def write_dataframe_to_sheet(client: gspread.client.Client, df_source: pd.DataFrame, sheet_id: str, worksheet_name: str, 
-                             values_only: bool = False, clear_sheet: bool = True, remove_duplicate=None, sort_by=None, verbose: bool = True) -> None:
+def write_dataframe_to_sheet(
+    client: gspread.client.Client, 
+    df_source: pd.DataFrame, 
+    sheet_id: str, 
+    worksheet_name: str, 
+    values_only: bool = False, 
+    clear_sheet: bool = True, 
+    remove_duplicate: Optional[Union[str, List[str]]] = None, 
+    sort_by: Optional[Union[str, List[str]]] = None, 
+    ascending: Union[bool, List[bool]] = True, 
+    fillna: str = '', 
+    verbose: bool = False
+) -> None:
     """
-    Write a Pandas DataFrame to a specified sheet within a Google Sheets document.
+    Write a Pandas DataFrame to a sheet within a Google Sheets document.
 
     Args:
-        client (gspread.client.Client): An authenticated gspread client for accessing Google Sheets.
-        df_source (pd.DataFrame): The Pandas DataFrame containing the data to be written to the sheet.
-        sheet_id (str): The unique identifier of the Google Sheets document (spreadsheet) to write data to.
-        worksheet_name (str): The name of the sheet within the document where data will be written.
-        values_only (bool, optional): Whether to write values only (excluding column headers). Defaults to False.
-        clear_sheet (bool, optional): Whether to clear the existing content of the sheet before writing data. Defaults to True.
-        remove_duplicate (str or list, optional): The column(s) to use for removing duplicates. Defaults to None.
-        sort_by (list, optional): The column(s) to use for sorting the DataFrame. Defaults to None.
-        verbose (bool, optional): Whether to print status messages. Defaults to True.
-
-    Example:
-        write_dataframe_to_sheet(your_authenticated_client, your_dataframe, 'your_spreadsheet_id', 'your_worksheet_name', remove_duplicate='column_name', sort_by=['column1', 'column2'])
+        client (gspread.client.Client): An authenticated gspread client.
+        df_source (pd.DataFrame): The DataFrame to write to the sheet.
+        sheet_id (str): The ID of the Google Sheets document to write data to.
+        worksheet_name (str): The name of the worksheet within the document to write data to.
+        values_only (bool, optional): If True, write only the values, excluding the index and columns. Defaults to False.
+        clear_sheet (bool, optional): If True, clear the existing data in the sheet before writing. Defaults to True.
+        remove_duplicate (str or list, optional): Column name(s) for removing duplicate rows. Defaults to None.
+        sort_by (str or list, optional): Column name(s) to sort the DataFrame by. Defaults to None.
+        ascending (bool or list, optional): If True or a list of booleans, sort in ascending order. Defaults to True.
+        fillna (str, optional): Value to replace NaN values with. Defaults to ''.
+        verbose (bool, optional): If True, print a success message after writing data. Defaults to False.
     """
-    # Make a copy of the source DataFrame to avoid modifying the original data
-    dataframe = df_source.copy()
+    # Copy the source DataFrame and fill missing values
+    df = df_source.copy().replace('', np.nan).fillna(fillna).astype(str)
 
-    # Fill any missing values in the DataFrame with empty strings
-    dataframe = dataframe.fillna('')
+    # Remove duplicates if specified
+    if remove_duplicate:
+        df.drop_duplicates(subset=remove_duplicate, inplace=True)
 
-    # Convert all values in the DataFrame to strings
-    dataframe = dataframe.astype(str)
+    # Sort DataFrame if specified
+    if sort_by:
+        df.sort_values(by=sort_by, ascending=ascending, inplace=True)
 
-    # Remove duplicates based on the specified column(s)
-    if remove_duplicate is not None:
-        dataframe.drop_duplicates(subset=remove_duplicate, inplace=True)
-
-    # Sort the DataFrame based on the specified column(s)
-    if sort_by is not None:
-        dataframe.sort_values(by=sort_by, inplace=True)
-
-    # Open the Google Sheets document using the provided sheet_id
+    # Open the Google Sheets document
     spreadsheet = client.open_by_key(sheet_id)
 
+    # Try to get the worksheet, or create a new one if it doesn't exist
     try:
-        # Get the worksheet by name
         worksheet = spreadsheet.worksheet(worksheet_name)
     except gspread.exceptions.WorksheetNotFound:
-        # If the worksheet doesn't exist, add a new worksheet with the specified name
         worksheet = spreadsheet.add_worksheet(worksheet_name, rows=1, cols=1)
 
+    # Clear the worksheet if specified
     if clear_sheet:
-        # Clear the existing content of the sheet if clear_sheet is True
         worksheet.clear()
 
-    if values_only:
-        # Write only the values (excluding column headers) to the worksheet starting from cell A2
-        worksheet.update('A2', dataframe.values.tolist(), value_input_option='USER_ENTERED')
-    else:
-        # Write both the column headers and values to the worksheet starting from cell A1
-        worksheet.update('A1', [dataframe.columns.tolist()] + dataframe.values.tolist(), value_input_option='USER_ENTERED')
+    # Prepare the data to be written to the worksheet
+    data = df.values.tolist()
+    if not values_only:
+        data = [df.columns.tolist()] + data
 
+    # Write the data to the worksheet
+    worksheet.update('A1' if not values_only else 'A2', data, value_input_option='USER_ENTERED')
+
+    # Print a message if verbose is True
     if verbose:
-        print(f'[INFO] Wrote {len(dataframe)} rows to sheet "{worksheet_name}"')
+        print(f'[INFO] Wrote {len(df)} rows to sheet "{worksheet_name}"')
 
-def append_dataframe_to_sheet(client: gspread.client.Client, df_to_append: pd.DataFrame, sheet_id: str, worksheet_name: str, 
-                              remove_duplicate: Optional[Union[str, List[str]]] = None, days_limit: Optional[int] = None, 
-                              sort_by: Optional[List[str]] = None, verbose: bool = True, ) -> None:
+def append_dataframe_to_sheet(
+    client: gspread.client.Client, 
+    df_to_append: pd.DataFrame, 
+    sheet_id: str, 
+    worksheet_name: str, 
+    remove_duplicate: Optional[Union[str, List[str]]] = None, 
+    days_limit: Optional[int] = None, 
+    sort_by: Optional[List[str]] = None, 
+    ascending: Union[bool, List[bool]] = True, 
+    verbose: bool = True
+) -> None:
     """
     Append a Pandas DataFrame to an existing sheet within a Google Sheets document.
-
-    Args:
-        client (gspread.client.Client): An authenticated gspread client for accessing Google Sheets.
-        df_to_append (pd.DataFrame): The Pandas DataFrame containing the data to be appended to the sheet.
-        sheet_id (str): The unique identifier of the Google Sheets document (spreadsheet) to append data to.
-        worksheet_name (str): The name of the sheet within the document where data will be appended.
-        verbose (bool, optional): Whether to print status messages. Defaults to True.
-        remove_duplicate (str or list, optional): Column name(s) for removing duplicate rows. Defaults to None.
-        days_limit (int, optional): Number of days to limit the data to. Defaults to None (no filtering).
-        sort_by (list, optional): List of column names to sort the DataFrame by. Defaults to None (no sorting).
     """
     # Read the existing data from the sheet
     df_existing = read_data_from_sheet(client, sheet_id, worksheet_name)
+
+    # Reindex the columns of df_to_append to match df_existing, filling missing columns with NaN
+    df_to_append = df_to_append.reindex(columns=df_existing.columns)
 
     # Concatenate the existing data with the new data to be appended
     df_combined = pd.concat([df_to_append, df_existing], ignore_index=True)
@@ -175,14 +181,14 @@ def append_dataframe_to_sheet(client: gspread.client.Client, df_to_append: pd.Da
         df_combined['date_local'] = pd.to_datetime(df_combined['date_local'], format='%Y-%m-%d').dt.date
 
     if sort_by:
-        if isinstance(sort_by, list):
-            # Sort the DataFrame based on the specified column(s)
-            df_combined = df_combined.sort_values(by=sort_by, ignore_index=True)
+        # Sort the DataFrame based on the specified column(s)
+        df_combined = df_combined.sort_values(by=sort_by, ascending=ascending, ignore_index=True)
 
     write_dataframe_to_sheet(client, df_combined, sheet_id, worksheet_name, verbose=False)
 
     if verbose:
         print(f'[INFO] Appended {len(df_to_append)} rows to sheet "{worksheet_name}"')
+
 
 def copy_file_to_drive(client: gspread.Client, from_source: str, file_source: str, folder_id_dest: str, 
                        filename: str, if_exist: str = 'skip') -> str:
