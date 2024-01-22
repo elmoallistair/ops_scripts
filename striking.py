@@ -178,3 +178,102 @@ def create_staging_for_remarks(client, df_staging, sheet_engine, worksheet_targe
                                       sort_by=['final_treatment', 'driver_id'])
 
     return df_staging
+
+def batch_check_latest_action_dates(client, sheet_configs):
+    # Iterate over each sheet configuration
+    for sheet_name, (sheet_id, worksheet_name) in sheet_configs.items():
+        # Read the data from the sheet
+        df_content = gconnect.read_data_from_sheet(client, sheet_id, worksheet_name, verbose=False)
+
+        # Determine the name of the action date column
+        action_date_column = 'action_date' if 'action_date' in df_content.columns else 'Action Date'
+
+        # Calculate the latest action date and the number of rows with that date
+        max_action_date = df_content[action_date_column].max()
+        num_of_rows = df_content[action_date_column].eq(max_action_date).sum()
+        print(f'[INFO] {sheet_name} - found {num_of_rows} rows with action date of {max_action_date}')
+
+def striking_recap(client, df_remarks, config):
+    # Replace empty values with NaN
+    df_remarks.replace(['', ' ', 'NA'], np.nan, inplace=True)
+    df_remarks.fillna(0, inplace=True)
+
+    # Convert columns to integers
+    df_remarks['strike'] = df_remarks['strike'].astype(int)
+    df_remarks['fleet_id'] = df_remarks['fleet_id'].astype(int)
+    df_remarks['reason_id'] = df_remarks['reason_id'].astype(int)
+    df_remarks['final_course_id'] = df_remarks['final_course_id'].astype(int)
+
+    # Input Validation
+    has_empty_reason_id = (df_remarks['reason_id'] == 0).any()
+    has_empty_fleet = (df_remarks['fleet_id'] == 0).any()
+    has_less_than_2_strikes = (df_remarks['strike'] < 2).any()
+    has_duplicate_driver_id = df_remarks.duplicated(subset='driver_id').any()
+
+    if has_empty_reason_id:
+        reason_id_indices = df_remarks[df_remarks['reason_id'] == 0].index + 1
+        print(f"[WARNING] Empty reason_id found at indices: {', '.join(map(str, reason_id_indices))}.")
+    
+    if has_empty_fleet:
+        fleet_indices = df_remarks[df_remarks['fleet_id'] == 0].index + 1
+        print(f"[WARNING] Empty fleet found at indices: {', '.join(map(str, fleet_indices))}.")
+    
+    if has_less_than_2_strikes:
+        strike_indices = df_remarks[df_remarks['strike'] < 2].index + 1
+        print(f"[WARNING] Strike count less than 2 found at indices: {', '.join(map(str, strike_indices))}.")
+    
+    if has_duplicate_driver_id:
+        duplicate_indices = df_remarks[df_remarks.duplicated(subset='driver_id')].index + 1
+        print(f"[WARNING] Duplicated identifier found at indices: {', '.join(map(str, duplicate_indices))}.")
+
+    if not (has_empty_reason_id or has_empty_fleet or has_less_than_2_strikes):
+        df_restrict = df_remarks[df_remarks['final_treatment'].str.contains('Restrict')]
+        df_blacklist = df_remarks[df_remarks['final_treatment'].str.contains('Blacklist')]
+
+        # Auto Restrict
+        df_restricted_auto = df_restrict[df_restrict['final_course_id'] != 0]
+        df_restricted_auto.rename(columns={'reason_id':'restrict_reason_id'}, inplace=True)
+        df_restricted_auto = processing.order_column_by_template(df_restricted_auto, config['restrict_auto']['cols_order'])
+        if len(df_restricted_auto) > 0:
+            gconnect.append_dataframe_to_sheet(client, df_restricted_auto, config['restrict_auto']['sheet_id'], 
+                                            worksheet_name=config['restrict_auto']['worksheet_name'], verbose=True)
+
+        # Blacklist - Recap
+        df_blacklist_recap = df_blacklist.copy()
+        df_blacklist_recap['date_local'] = df_blacklist_recap['action_date']
+        df_blacklist_recap = processing.order_column_by_template(df_blacklist_recap, config['blacklist_recap']['cols_order'])
+        df_blacklist_recap.fillna('', inplace=True)
+        if len(df_blacklist_recap) > 0:
+            gconnect.append_dataframe_to_sheet(client, df_blacklist_recap, config['blacklist_recap']['sheet_id'], 
+                                            worksheet_name=config['blacklist_recap']['worksheet_name'], verbose=True)
+
+        # Manual Restrict
+        df_restricted_manual = df_restrict[df_restrict['final_course_id'] == 0]
+        df_restricted_manual['append_driver_profile_remark'] = df_restricted_manual['remarks']
+        df_restricted_manual = processing.order_column_by_template(df_restricted_manual, config['restrict_manual']['cols_order'])
+        df_restricted_manual.fillna('', inplace=True)
+        if len(df_restricted_manual) > 0:
+            df_restricted_manual.to_csv(f'temp/{config["restrict_manual"]["filename"]}.csv', index=False)
+            print(f"[INFO] {len(df_restricted_manual)} rows appended to {config['restrict_manual']['filename']}")
+
+        # Blacklist - Unicorn
+        df_blacklisted = df_blacklist.copy()
+        df_blacklisted['append_driver_profile_remark'] = df_blacklisted['remarks']
+        df_blacklisted = processing.order_column_by_template(df_blacklisted, config['blacklist_unicorn']['cols_order'])
+        df_blacklisted.fillna('', inplace=True)
+        if len(df_blacklisted) > 0:
+            df_blacklisted.to_csv(f'temp/{config["blacklist_unicorn"]["filename"]}.csv', index=False)
+            print(f"[INFO] {len(df_blacklisted)} rows appended to {config['blacklist_unicorn']['filename']}")
+
+        # Blacklist - Update Taxi Type
+        df_update_taxi = df_blacklist.copy()
+        df_update_taxi = processing.order_column_by_template(df_update_taxi, config['update_taxi_type']['cols_order'])
+        df_update_taxi.fillna('', inplace=True)
+        if len(df_update_taxi) > 0:
+            df_update_taxi.to_csv(f'temp/{config["update_taxi_type"]["filename"]}.csv', index=False)
+            print(f"[INFO] {len(df_update_taxi)} rows appended to {config['update_taxi_type']['filename']}")
+
+        return df_restricted_auto, df_restricted_manual, df_blacklisted, df_update_taxi, df_blacklist_recap
+
+    print ('[REJECTED] Please fix the errors above before proceeding.')
+    return None
