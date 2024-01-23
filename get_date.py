@@ -22,6 +22,43 @@ def get_date_range(start_date: str, end_date: str) -> list:
 
     return date_lst
 
+def get_last_n_period_dates(period_name: str, period_n: int) -> Tuple[str, str]:
+    """
+    Calculate the start and end dates for the last n periods (weeks or months) from the current date, excluding the current week or month.
+
+    Parameters:
+    period_name (str): The type of period ('week' or 'month').
+    period_n (int): The number of periods to go back from the current date.
+
+    Returns:
+    Tuple[str, str]: The start and end dates of the period in 'YYYY-MM-DD' format.
+
+    Raises:
+    ValueError: If period_name is not 'week' or 'month'.
+    """
+    
+    # Define date_end as the end of the previous week or month
+    if period_name == 'week':
+        date_end = (pd.Timestamp.today() - pd.DateOffset(weeks=1)) + pd.offsets.Week(weekday=6)  # Go to the next Sunday of the previous week
+    elif period_name == 'month':
+        date_end = (pd.Timestamp.today() - pd.DateOffset(months=1)) + pd.offsets.MonthEnd(1)  # Go to the end of the previous month
+    else:
+        raise ValueError("period_name must be either 'week' or 'month'")
+
+    # Define date_start based on period_name and n
+    if period_name == 'week':
+        date_start = date_end - pd.DateOffset(weeks=period_n) + pd.DateOffset(days=1)  # Go to the Monday of the start week
+    elif period_name == 'month':
+        date_start = date_end - pd.DateOffset(months=period_n) + pd.DateOffset(days=1)  # Go to the first day of the start month
+    else:
+        raise ValueError("period_name must be either 'week' or 'month'")
+
+    # Convert date_start and date_end to 'YYYY-MM-DD' format
+    date_start = date_start.strftime('%Y-%m-%d')
+    date_end = date_end.strftime('%Y-%m-%d')
+
+    return date_start, date_end
+
 def get_n_last_date_range(n: int) -> tuple:
     """
     Returns the start and end dates for the last 'n' days.
