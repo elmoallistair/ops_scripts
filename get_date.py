@@ -1,3 +1,5 @@
+import pandas as pd
+from typing import Tuple
 from datetime import datetime, timedelta
 
 def get_date_range(start_date: str, end_date: str) -> list:
