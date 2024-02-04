@@ -70,7 +70,7 @@ def get_prediction_with_model(df_review, model, vectorizer, col_target='review_o
 
     return predictions, confidences
 
-def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_remarks', transform=False):
+def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_remarks', default=None, transform=False):
     """
     Get the prediction with existing processed record and calculate confidence scores.
 
@@ -92,7 +92,7 @@ def get_prediction_with_keywords(df_review, df_keywords, col_target='review_or_r
 
         if check:
             return labels[iter-1]
-        return 'not_found'
+        return default
     
     def transform_class(tag):
         """Transforming class or label name."""
