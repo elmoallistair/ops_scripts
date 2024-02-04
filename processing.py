@@ -89,11 +89,12 @@ def detect_suspicious_pax(df):
     excluded_predictions = ['mex_related', 'product_related', 'unclear']
     count_mask = ~df['prediction'].isin(excluded_predictions)
 
+    df = create_identifier(df, ['passenger_id', 'review_or_remarks'])
     df['pax_count'] = df[count_mask].groupby('passenger_id')['passenger_id'].transform('count')
     df['identifier_count'] = df[count_mask].groupby('identifier')['identifier'].transform('count')
 
-    suspicious_condition = (df['pax_count'] > 3) | (df['identifier_count'] > 1)
-    df.loc[suspicious_condition, 'prediction'] = 'Suspicious'
+    suspicious_condition = (df['pax_count'] > 2) | (df['identifier_count'] > 1)
+    df.loc[suspicious_condition, 'prediction'] = 'suspicious'
 
     return df
 
