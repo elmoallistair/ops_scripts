@@ -198,6 +198,13 @@ def striking_recap(client, df_remarks, config):
     df_remarks.replace(['', ' ', 'NA'], np.nan, inplace=True)
     df_remarks.fillna(0, inplace=True)
 
+    # Check if all action_date are set to today's date
+    today = datetime.now().strftime('%Y-%m-%d')
+    df_remarks['action_date'] = pd.to_datetime(df_remarks['action_date'])
+    if not all(df_remarks['action_date'] == today):
+        print("[REJECTED] all action_date must be set to today's date")
+        return None
+    
     # Convert columns to integers
     df_remarks['strike'] = df_remarks['strike'].astype(int)
     df_remarks['fleet_id'] = df_remarks['fleet_id'].astype(int)
@@ -230,48 +237,47 @@ def striking_recap(client, df_remarks, config):
         df_restrict = df_remarks[df_remarks['final_treatment'].str.contains('Restrict')]
         df_blacklist = df_remarks[df_remarks['final_treatment'].str.contains('Blacklist')]
 
-        # Auto Restrict
-        df_restricted_auto = df_restrict[df_restrict['final_course_id'] != 0]
-        df_restricted_auto.rename(columns={'reason_id':'restrict_reason_id'}, inplace=True)
-        df_restricted_auto = processing.order_column_by_template(df_restricted_auto, config['restrict_auto']['cols_order'])
-        if len(df_restricted_auto) > 0:
-            gconnect.append_dataframe_to_sheet(client, df_restricted_auto, config['restrict_auto']['sheet_id'], 
-                                            worksheet_name=config['restrict_auto']['worksheet_name'], verbose=True)
-
-        # Blacklist - Recap
-        df_blacklist_recap = df_blacklist.copy()
-        df_blacklist_recap['date_local'] = df_blacklist_recap['action_date']
-        df_blacklist_recap = processing.order_column_by_template(df_blacklist_recap, config['blacklist_recap']['cols_order'])
-        df_blacklist_recap.fillna('', inplace=True)
-        if len(df_blacklist_recap) > 0:
-            gconnect.append_dataframe_to_sheet(client, df_blacklist_recap, config['blacklist_recap']['sheet_id'], 
-                                            worksheet_name=config['blacklist_recap']['worksheet_name'], verbose=True)
-
         # Manual Restrict
         df_restricted_manual = df_restrict[df_restrict['final_course_id'] == 0]
         df_restricted_manual['append_driver_profile_remark'] = df_restricted_manual['remarks']
-        df_restricted_manual = processing.order_column_by_template(df_restricted_manual, config['restrict_manual']['cols_order'])
-        df_restricted_manual.fillna('', inplace=True)
         if len(df_restricted_manual) > 0:
-            df_restricted_manual.to_csv(f'temp/{config["restrict_manual"]["filename"]}.csv', index=False)
-            print(f"[INFO] {len(df_restricted_manual)} rows appended to {config['restrict_manual']['filename']}")
+            gconnect.append_dataframe_to_sheet(client, df_restricted_manual, config['restrict_manual']['recap_sheet_id'], 
+                                               worksheet_name=config['restrict_manual']['recap_worksheet_name'], 
+                                               remove_duplicate=['append_driver_profile_remark'], verbose=True)
+
+        # Auto Restrict
+        df_restricted_auto = df_restrict[df_restrict['final_course_id'] != 0]
+        df_restricted_auto.rename(columns={'reason_id':'restrict_reason_id'}, inplace=True)
+        if len(df_restricted_auto) > 0:
+            gconnect.append_dataframe_to_sheet(client, df_restricted_auto, config['restrict_auto']['recap_sheet_id'], 
+                                               worksheet_name=config['restrict_auto']['recap_worksheet_name'], 
+                                               remove_duplicate=['remarks'], verbose=True)
+            gconnect.append_dataframe_to_sheet(client, df_restricted_auto, config['restrict_auto']['unicorn_sheet_id'], 
+                                               worksheet_name=config['restrict_auto']['unicorn_worksheet_name'], 
+                                               remove_duplicate=['remarks'], verbose=True)
+        # Blacklist - Recap
+        df_blacklist_recap = df_blacklist.copy()
+        df_blacklist_recap['date_local'] = df_blacklist_recap['action_date']
+        if len(df_blacklist_recap) > 0:
+            gconnect.append_dataframe_to_sheet(client, df_blacklist_recap, config['blacklist']['recap_ext_sheet_id'], 
+                                               worksheet_name=config['blacklist']['recap_ext_worksheet_name'], 
+                                               remove_duplicate=['driver_id', 'sub_category', 'action_date'], verbose=True)
 
         # Blacklist - Unicorn
         df_blacklisted = df_blacklist.copy()
         df_blacklisted['append_driver_profile_remark'] = df_blacklisted['remarks']
-        df_blacklisted = processing.order_column_by_template(df_blacklisted, config['blacklist_unicorn']['cols_order'])
-        df_blacklisted.fillna('', inplace=True)
         if len(df_blacklisted) > 0:
-            df_blacklisted.to_csv(f'temp/{config["blacklist_unicorn"]["filename"]}.csv', index=False)
-            print(f"[INFO] {len(df_blacklisted)} rows appended to {config['blacklist_unicorn']['filename']}")
+            gconnect.append_dataframe_to_sheet(client, df_blacklisted, config['blacklist']['recap_sheet_id'], 
+                                               worksheet_name=config['blacklist']['recap_worksheet_name'], 
+                                               remove_duplicate=['append_driver_profile_remark'], verbose=True)
 
         # Blacklist - Update Taxi Type
         df_update_taxi = df_blacklist.copy()
-        df_update_taxi = processing.order_column_by_template(df_update_taxi, config['update_taxi_type']['cols_order'])
-        df_update_taxi.fillna('', inplace=True)
+        df_update_taxi['activated'] = 0
         if len(df_update_taxi) > 0:
-            df_update_taxi.to_csv(f'temp/{config["update_taxi_type"]["filename"]}.csv', index=False)
-            print(f"[INFO] {len(df_update_taxi)} rows appended to {config['update_taxi_type']['filename']}")
+            gconnect.append_dataframe_to_sheet(client, df_update_taxi, config['update_taxi_type']['recap_sheet_id'], 
+                                               worksheet_name=config['update_taxi_type']['recap_worksheet_name'], 
+                                               remove_duplicate=['driver_id', 'fleet_id', 'action_date'], verbose=True)
 
         return df_restricted_auto, df_restricted_manual, df_blacklisted, df_update_taxi, df_blacklist_recap
 
