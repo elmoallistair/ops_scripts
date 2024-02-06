@@ -287,7 +287,7 @@ def custom_multi_pred(df_tickets, df_keyword, df_record, classifier, vectorizer,
     conf_final = []
 
     # Keyword Matching
-    df_tickets['pred_keyword'] = get_prediction_with_keywords(df_tickets, df_keyword, col_target)
+    df_tickets['pred_keyword'] = get_prediction_with_keywords(df_tickets, df_keyword, col_target, default='not_found')
 
     # Record Lookup
     pred_record, conf_record = get_prediction_with_record(df_tickets, df_record, col_target)
