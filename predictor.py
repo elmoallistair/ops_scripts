@@ -326,7 +326,10 @@ def custom_multi_pred(df_tickets, df_keyword, df_record, classifier, vectorizer,
                     pred_final.append(pred_model)
                     conf_final.append(conf_model)
 
-    return pred_final, conf_final
+    df_tickets['prediction'] = pred_final
+    df_tickets['conf_score'] = conf_final
+
+    return df_tickets
 
 def adhoc_get_models_accuracies(df_preds, cols_pred_identifier, col_actual_tag):
     """
