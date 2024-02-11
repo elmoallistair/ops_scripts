@@ -61,12 +61,12 @@ def remove_short_reviews(df_reviews, column_name='review_or_remarks', min_word=2
 def create_booking_metadata(df):
     def metadata(row):
         data = {
-            'bc': 1 if row['is_batching'] else 0,
-            'pf': 1 if pd.notna(row['parking_fee']) else 0,
-            'pl': int(max(0, row['pick_late'] // 10)) if pd.notna(row['pick_late']) else 0,
-            'dl': int(max(0, row['drop_late'] // 10)) if pd.notna(row['drop_late']) else 0,
-            'pu': ' '.join(row['pickup_keywords'].split()[:2]) if pd.notna(row['pickup_keywords']) else 'null',
-            'do': ' '.join(row['dropoff_keywords'].split()[:2]) if pd.notna(row['dropoff_keywords']) else 'null'
+            'bc': row['is_batching'],
+            'pf': row['parking_fee'],
+            'pl': row['pick_late'],
+            'dl': row['drop_late'],
+            'pu': row['poi_pickup'],
+            'do': row['poi_dropoff']
         }
         return json.dumps(data)
 
