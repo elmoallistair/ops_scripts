@@ -27,14 +27,14 @@ def dax_quality_check(dax_check: List[int], df_record: pd.DataFrame, cols: List[
     
     return dax_checked[cols]
 
-def batch_dax_quality_check(dax_check: pd.DataFrame, df_record: pd.DataFrame, level_mapping: Dict[str, int], 
+def batch_dax_quality_check(dax_check: pd.DataFrame, dax_record: pd.DataFrame, level_mapping: Dict[str, int], 
                             threshold: int = 2, days: int = 90) -> pd.DataFrame:
     """
     Perform batch DAX quality check for recommendation purpose.
 
     Args:
         dax_check (pd.DataFrame): DataFrame containing DAX to be checked.
-        df_record (pd.DataFrame): DataFrame containing all violation records.
+        dax_record (pd.DataFrame): DataFrame containing all violation records.
         level_mapping (Dict[str, int]): Mapping of level names to numeric values.
         threshold (int, optional): Threshold for determining recommendation. Defaults to 2.
         days (int, optional): Number of days to consider for recent data. Defaults to 90.
@@ -43,27 +43,31 @@ def batch_dax_quality_check(dax_check: pd.DataFrame, df_record: pd.DataFrame, le
         pd.DataFrame: DataFrame with quality check results, contains recommendation verdict and violation history.
     """
     
+    # Filter dax_record for recent data
     last_n_days = datetime.now() - timedelta(days=days)
+    dax_record['date_local'] = pd.to_datetime(dax_record['date_local'])
+    dax_record = dax_record[dax_record['date_local'] >= last_n_days]
+
+    # Sum scores per driver_id
+    dax_record['score'] = dax_record['level'].map(level_mapping)
+    dax_scores = dax_record.groupby('driver_id')['score'].sum().reset_index()
+    dax_scores['score'] = dax_scores['score'].astype(int)
     
-    df_record['level_num'] = df_record['level'].map(level_mapping)
-    df_record['date_local'] = pd.to_datetime(df_record['date_local'])
-    df_record = df_record[df_record['date_local'] >= last_n_days]
-    
-    scores = df_record.groupby('driver_id')['level_num'].sum().reset_index()
-    scores.rename(columns={'level_num': 'score'}, inplace=True)
-    
+    # Convert driver_id columns to numeric
     dax_check['driver_id'] = pd.to_numeric(dax_check['driver_id'], errors='coerce')
-    df_record['driver_id'] = pd.to_numeric(df_record['driver_id'], errors='coerce')
+    dax_record['driver_id'] = pd.to_numeric(dax_record['driver_id'], errors='coerce')
+    dax_scores['driver_id'] = pd.to_numeric(dax_scores['driver_id'], errors='coerce')
     
-    dax_check['score'] = dax_check['driver_id'].map(scores.set_index('driver_id')['score']).fillna(0)
+    # Map scores and determine verdict
+    dax_check['score'] = dax_check['driver_id'].map(dax_scores.set_index('driver_id')['score']).fillna(0)
     dax_check['verdict'] = dax_check['score'].apply(lambda x: 'Recommended' if x < threshold else 'Not Recommended')
     
-    driver_info = df_record.groupby('driver_id').agg({'sub_category': ', '.join, 
+    # Append additional informations
+    driver_info = dax_record.groupby('driver_id').agg({'sub_category': ', '.join, 
                                                       'booking_code': ', '.join, 
                                                       'review_or_remarks': ' | '.join}).to_dict()
-
-    dax_check['booking_codes'] = dax_check['driver_id'].map(driver_info['booking_code']).fillna('')
-    dax_check['categories'] = dax_check['driver_id'].map(driver_info['sub_category']).fillna('')
     dax_check['reviews'] = dax_check['driver_id'].map(driver_info['review_or_remarks']).fillna('')    
+    dax_check['dispositions'] = dax_check['driver_id'].map(driver_info['sub_category']).fillna('')
+    dax_check['booking_code'] = dax_check['driver_id'].map(driver_info['booking_code']).fillna('')
 
     return dax_check
