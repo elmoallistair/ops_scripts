@@ -153,8 +153,7 @@ def create_staging_for_comms(client, df_staging, sheet_engine, worksheet_target,
 
 
 def create_staging_for_cooldown(client, df_staging, sheet_engine, worksheet_target, identifier='identifier_strike'):
-    df_cooldown = processing.order_column_by_template(df_staging, [identifier, 'cooldown', 'action_date'])
-    df_cooldown['cooldown'] = 'Yes'
+    df_cooldown = processing.order_column_by_template(df_staging, [identifier, 'frequency', 'action_date'])
         
     gconnect.write_dataframe_to_sheet(client, df_cooldown, sheet_engine, worksheet_target)
 
