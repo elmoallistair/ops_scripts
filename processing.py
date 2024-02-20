@@ -141,9 +141,8 @@ def append_zendesk_ticket_id(df_tickets, col_target='review_or_remarks', col_id=
     
 def validate_tickets(df_tickets, territories=None, verticals=None, drop=False, reject=False):
     def is_valid_booking_code(code):
-        valid_prefixes = ['A-', 'IN-', 'SD-', 'MS-']
         valid_chars = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-')
-        return any(code.startswith(prefix) for prefix in valid_prefixes) and all(c in valid_chars for c in code)
+        return all(c in valid_chars for c in code)
 
     flag = False
     invalid_values = ['#N/A', 'NaN', '#REF!', '#ERROR!', '#NAME?', '#N/A']
