@@ -1,7 +1,9 @@
 import os
+import time
 import gspread
 import numpy as np
 import pandas as pd
+import processing
 from typing import Union, List, Optional
 from datetime import datetime, timedelta
 from google.oauth2 import service_account
@@ -84,65 +86,85 @@ def write_dataframe_to_sheet(
     df_source: pd.DataFrame, 
     sheet_id: str, 
     worksheet_name: str, 
-    values_only: bool = False, 
-    clear_sheet: bool = True, 
+    cols_order: Optional[List[str]] = None,
     remove_duplicate: Optional[Union[str, List[str]]] = None, 
     sort_by: Optional[Union[str, List[str]]] = None, 
-    ascending: Union[bool, List[bool]] = True, 
+    sort_ascending: Union[bool, List[bool]] = True, 
     fillna: str = '', 
-    verbose: bool = False
+    verbose: bool = False,
+    max_retries: int = 3
 ) -> None:
     """
-    Write a Pandas DataFrame to a sheet within a Google Sheets document.
+    Write a Pandas DataFrame to a Google Sheets document.
 
     Args:
-        client (gspread.client.Client): An authenticated gspread client.
-        df_source (pd.DataFrame): The DataFrame to write to the sheet.
-        sheet_id (str): The ID of the Google Sheets document to write data to.
-        worksheet_name (str): The name of the worksheet within the document to write data to.
-        values_only (bool, optional): If True, write only the values, excluding the index and columns. Defaults to False.
-        clear_sheet (bool, optional): If True, clear the existing data in the sheet before writing. Defaults to True.
-        remove_duplicate (str or list, optional): Column name(s) for removing duplicate rows. Defaults to None.
-        sort_by (str or list, optional): Column name(s) to sort the DataFrame by. Defaults to None.
-        ascending (bool or list, optional): If True or a list of booleans, sort in ascending order. Defaults to True.
-        fillna (str, optional): Value to replace NaN values with. Defaults to ''.
-        verbose (bool, optional): If True, print a success message after writing data. Defaults to False.
+        client (gspread.client.Client): The gspread client.
+        df_source (pd.DataFrame): The DataFrame to write.
+        sheet_id (str): The ID of the sheet to write to.
+        worksheet_name (str): The name of the worksheet to write to.
+        cols_order (Optional[List[str]]): The order of the columns. If None, the order of the DataFrame is used.
+        remove_duplicate (Optional[Union[str, List[str]]]): The columns to consider when removing duplicates. If None, all columns are used.
+        sort_by (Optional[Union[str, List[str]]]): The columns to sort by. If None, the DataFrame is not sorted.
+        sort_ascending (Union[bool, List[bool]]): Whether or not the sorting should be done in sort_ascending order.
+        fillna (str): The value to replace NaN values with.
+        verbose (bool): Whether to print verbose messages.
+        max_retries (int): Maximum number of retries in case of failure.
     """
-    # Copy the source DataFrame and fill missing values
-    df = df_source.copy().replace('', np.nan).fillna(fillna).astype(str)
 
-    # Remove duplicates if specified
+    # Copy the DataFrame, replace empty strings and single-space strings with NaN, 
+    # fill NaN values with the specified value and convert all values to strings.
+    df = df_source.copy().replace(['', ' '], np.nan).fillna(fillna).astype(str)
+ 
+    # If cols_order is provided and not empty, reorder the columns
+    if cols_order is not None:
+        df = processing.order_column_by_template(df, cols_order)
+ 
+    # If remove_duplicate is provided, remove duplicates
     if remove_duplicate:
         df.drop_duplicates(subset=remove_duplicate, inplace=True)
-
-    # Sort DataFrame if specified
+ 
+    # If sort_by is provided, sort the DataFrame
     if sort_by:
-        df.sort_values(by=sort_by, ascending=ascending, inplace=True)
+        df.sort_values(by=sort_by, ascending=sort_ascending, inplace=True)
 
-    # Open the Google Sheets document
+    # Open the spreadsheet
     spreadsheet = client.open_by_key(sheet_id)
 
-    # Try to get the worksheet, or create a new one if it doesn't exist
+    # Try to get the worksheet, if it doesn't exist, create it
     try:
         worksheet = spreadsheet.worksheet(worksheet_name)
     except gspread.exceptions.WorksheetNotFound:
         worksheet = spreadsheet.add_worksheet(worksheet_name, rows=1, cols=1)
-
-    # Clear the worksheet if specified
-    if clear_sheet:
-        worksheet.clear()
-
-    # Prepare the data to be written to the worksheet
+    
+    # Convert the DataFrame to a list of lists
     data = df.values.tolist()
-    if not values_only:
-        data = [df.columns.tolist()] + data
+    data = [df.columns.tolist()] + data
 
-    # Write the data to the worksheet
-    worksheet.update('A1' if not values_only else 'A2', data, value_input_option='USER_ENTERED')
-
-    # Print a message if verbose is True
-    if verbose:
-        print(f'[INFO] Wrote {len(df)} rows to sheet "{worksheet_name}"')
+    retry_count = 0
+    while retry_count < max_retries:
+        try:
+            # Update the worksheet with the data
+            worksheet.clear()
+            worksheet.update('A1', data, value_input_option='USER_ENTERED')
+            # If verbose is True, print a message
+            if verbose:
+                print(f'[INFO] Wrote {len(df)} rows to sheet "{worksheet_name}"')
+            return  # Successful update, exit the loop
+        except Exception as e:
+            retry_count += 1
+            print(f"[FAILED] Failed to write to '{worksheet_name}'. {retry_count}/{max_retries} retries attemps remaining. Error: {type(e).__name__}")
+            time.sleep(10)
+    
+    # If still failed after max retries, create backup in local
+    backup_folder = 'backup/write_sheet'
+    if not os.path.exists(backup_folder):
+        os.makedirs(backup_folder)
+    
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d")
+    backup_filename = f"{worksheet_name}_{timestamp}_backup.csv"
+    backup_path = os.path.join(backup_folder, backup_filename)
+    df_source.to_csv(backup_path, index=False)
+    print(f"[INFO] Backup created: {backup_path}")
 
 def append_dataframe_to_sheet(
     client: gspread.client.Client, 
