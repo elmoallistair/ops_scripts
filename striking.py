@@ -282,3 +282,51 @@ def striking_recap(client, df_remarks, config):
 
     print ('[REJECTED] Please fix the errors above before proceeding.')
     return None
+
+def update_cooldown_data(df_cooldown_old, df_cooldown_new):
+    # Filter new data for daily and weekly frequencies
+    df_cooldown_daily_new = df_cooldown_new[df_cooldown_new['frequency'] == 'Daily'].copy()
+    df_cooldown_weekly_new = df_cooldown_new[df_cooldown_new['frequency'] == 'Weekly'].copy()
+
+    # Reset index of df_cooldown_weekly_new
+    df_cooldown_weekly_new.reset_index(drop=True, inplace=True)
+
+    # Create df_cooldown_final with the same length as df_cooldown_new
+    df_cooldown_final = pd.DataFrame(index=range(max(len(df_cooldown_new), len(df_cooldown_old))),
+                                    columns=['daily_identifier_strike', 'daily_action_date', 
+                                            'weekly_identifier_strike', 'weekly_action_date'])
+
+    # Copy columns from df_cooldown_daily if it's not empty
+    if not df_cooldown_daily_new.empty:
+        df_cooldown_final[['daily_identifier_strike', 'daily_action_date']] = df_cooldown_daily_new[['identifier_strike', 'action_date']]
+    else:
+        df_cooldown_final[['daily_identifier_strike', 'daily_action_date']] = df_cooldown_old[['daily_identifier_strike', 'daily_action_date']]
+
+    # Copy columns from df_cooldown_weekly if it's not empty
+    if not df_cooldown_weekly_new.empty:
+        df_cooldown_final[['weekly_identifier_strike', 'weekly_action_date']] = df_cooldown_weekly_new[['identifier_strike', 'action_date']]
+    else:
+        df_cooldown_final[['weekly_identifier_strike', 'weekly_action_date']] = df_cooldown_old[['weekly_identifier_strike', 'weekly_action_date']]
+
+    # Sort each column individually to have NaNs at the bottom
+    for col in df_cooldown_final.columns:
+        df_cooldown_final[col] = df_cooldown_final[col].sort_values(na_position='last')
+
+    # Remove rows where all four columns have NaN values
+    df_cooldown_final.dropna(subset=['daily_identifier_strike', 'daily_action_date', 'weekly_identifier_strike', 'weekly_action_date'], how='all', inplace=True)
+
+    # Reset index after removing rows
+    df_cooldown_final.reset_index(drop=True, inplace=True)
+
+    # Calculate counts and latest action dates
+    daily_count = df_cooldown_final['daily_identifier_strike'].count()
+    weekly_count = df_cooldown_final['weekly_identifier_strike'].count()
+    latest_daily_date = df_cooldown_final[df_cooldown_final['daily_identifier_strike'].notna()]['daily_action_date'].max()
+    latest_weekly_date = df_cooldown_final[df_cooldown_final['weekly_identifier_strike'].notna()]['weekly_action_date'].max()
+
+    # Print information about the updated cooldown data
+    print("[INFO] Cooldown has been updated")
+    print(f"- Daily : {daily_count} with action date of {latest_daily_date}")
+    print(f"- Weekly : {weekly_count} with action date of {latest_weekly_date}")
+
+    return df_cooldown_final
