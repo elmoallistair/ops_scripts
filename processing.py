@@ -199,3 +199,15 @@ def validate_tickets(df_tickets, territories=None, verticals=None, drop=False, r
         return None
 
     return df_tickets
+
+def merge_apf_amount(df_current, df_alt):
+    df_new = df_current.copy()
+    df_new = df_new.merge(df_alt[['merchant_id', 'parking_fee']], on='merchant_id', how='left', suffixes=('', '_alt'))
+    df_new['parking_fee_new'] = df_new['parking_fee_alt'].where(df_new['parking_fee_alt'].notna(), df_new['parking_fee'])
+
+    df_overridden = df_new[df_new.parking_fee != df_new.parking_fee_new]
+    print(f"[INFO] Override APF amount from {len(df_overridden)} bookings")
+
+    # Remove rows where parking_fee < parking_fee_new or parking_fee_new == 0
+    df_new = df_new[~((df_new.parking_fee < df_new.parking_fee_new) | (df_new.parking_fee_new == 0))]
+    return df_new
