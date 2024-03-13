@@ -61,19 +61,20 @@ def get_last_n_period_dates(period_name: str, period_n: int) -> Tuple[str, str]:
 
     return date_start, date_end
 
-def get_n_last_date_range(n: int) -> tuple:
+def get_n_last_date_range(n: int, exc_today=False) -> tuple:
     """
     Returns the start and end dates for the last 'n' days.
 
     Parameters:
     n (int): The number of days to go back from today.
+    exc_today (bool): If True, today's date is excluded.
 
     Returns:
     tuple: A tuple containing the start and end dates in 'YYYY-MM-DD' format.
     """
     today_date = datetime.today()
     date_format = "%Y-%m-%d"
-    date_end = today_date.strftime(date_format)
+    date_end = (today_date - timedelta(days=1 if exc_today else 0)).strftime(date_format)
     date_start = (today_date - timedelta(days=n)).strftime(date_format)
 
     return date_start, date_end
