@@ -65,10 +65,16 @@ def read_data_from_sheet(
         try:
             worksheet = spreadsheet.worksheet(name)
             data = worksheet.get_all_values()
+            if not data:
+                print(f"[WARNING] Worksheet '{name}' is empty")
+                continue
+            if len(data) < 1:
+                print(f"[WARNING] Worksheet '{name}' has no headers")
+                continue
             dataframe = pd.DataFrame(data[1:], columns=data[0])
             dataframes.append(dataframe)
         except gspread.exceptions.WorksheetNotFound:
-            print(f"[WARNING] Sheet '{name}' does not exist")
+            print(f"[WARNING] Worksheet '{name}' does not exist")
 
     if not dataframes:
         return None
